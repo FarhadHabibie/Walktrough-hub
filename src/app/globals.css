@@ -1,15 +1,15 @@
 @import "tailwindcss";
 
 @theme {
-  --color-bg: #0b0e14;
-  --color-surface: #121724;
-  --color-surface2: #1a2133;
-  --color-edge: #222b41;
-  --color-ink: #e8ebf4;
-  --color-muted: #97a1b8;
-  --color-accent: #8b7bff;
-  --color-accent2: #38bdf8;
-  --color-ok: #34d399;
+  --color-bg: #0e0e10;
+  --color-surface: #151517;
+  --color-surface2: #1d1d20;
+  --color-edge: #29292e;
+  --color-ink: #ebebee;
+  --color-muted: #a1a1aa;
+  --color-accent: #d08d4a;
+  --color-accent2: #e2ab73;
+  --color-ok: #86c08a;
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
 }
@@ -36,7 +36,7 @@ body {
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: #2a3550 transparent;
+  scrollbar-color: #3a3a41 transparent;
 }
 
 /* ---------- walkthrough prose (renders sanitized wiki HTML) ---------- */
@@ -44,7 +44,7 @@ body {
 .prose-wt {
   font-size: 0.985rem;
   line-height: 1.8;
-  color: #cfd6e6;
+  color: #d2d2d9;
   overflow-wrap: break-word;
 }
 
@@ -81,7 +81,7 @@ body {
 }
 
 .prose-wt a:hover {
-  color: #7dd3fc;
+  color: #f2c895;
   text-decoration-color: currentColor;
 }
 
@@ -104,7 +104,7 @@ body {
 
 .prose-wt dl { margin: 0.9em 0; }
 .prose-wt dt { font-weight: 600; color: var(--color-ink); margin-top: 0.6em; }
-.prose-wt dd { margin-left: 1.25em; color: #cfd6e6; }
+.prose-wt dd { margin-left: 1.25em; color: #d2d2d9; }
 
 .prose-wt img {
   display: block;
