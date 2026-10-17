@@ -40,5 +40,8 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# local walkthrough database
+# local walkthrough database (legacy — data now lives in IndexedDB)
 /data/
+
+# android APK artifacts copied out of android/ for easy transfer
+/WalkthroughHub-*.apk

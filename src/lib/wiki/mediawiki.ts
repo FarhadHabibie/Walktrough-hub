@@ -41,6 +41,22 @@ function absolutize(raw: string | null | undefined, origin: string): string | nu
   return null;
 }
 
+/**
+ * `AbortSignal.timeout` needs WebView 103+; on anything older fall back to a
+ * manual controller (and to no signal at all if even that is unavailable —
+ * an un-aborted request is still better than a crash).
+ */
+function timeoutSignal(ms: number): AbortSignal | undefined {
+  if (typeof AbortSignal.timeout === "function") return AbortSignal.timeout(ms);
+  try {
+    const controller = new AbortController();
+    setTimeout(() => controller.abort(), ms);
+    return controller.signal;
+  } catch {
+    return undefined;
+  }
+}
+
 export function makeWikiClient(apiUrl: string): WikiClient {
   const api = new URL(apiUrl);
   const origin = api.origin;
@@ -59,7 +75,7 @@ export function makeWikiClient(apiUrl: string): WikiClient {
         "User-Agent": UA,
         Accept: "application/json",
       },
-      signal: AbortSignal.timeout(30_000),
+      signal: timeoutSignal(30_000),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status} for ${apiUrl} (${params.action})`);
     return res.json();

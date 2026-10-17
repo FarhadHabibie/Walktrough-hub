@@ -1,93 +1,93 @@
 # WalkthroughHub
 
-Web app untuk baca walkthrough game **lengkap dalam satu halaman**. Cari game → buka → semua bagian walkthrough langsung dimuat (nggak perlu klik-klik chapter), plus **progress tracking** yang tersimpan otomatis di browser.
+Aplikasi baca walkthrough game **lengkap dalam satu halaman**. Cari game → buka → semua bagian walkthrough langsung dimuat (nggak perlu klik-klik chapter), plus **progress tracking** yang tersimpan otomatis.
 
-Konten di-scrape dari wiki publik (Fandom, wiki.gg, dll — MediaWiki API), disimpan lokal di SQLite, jadi:
+Konten diambil dari wiki publik (Fandom, wiki.gg, Fextralife, StrategyWiki, dll — MediaWiki API) **langsung oleh aplikasi** (browser/WebView memanggil API-nya sendiri — semua sumber mengizinkan CORS), lalu disimpan **di perangkat** (IndexedDB) — tanpa server sama sekali:
 
-- ⚡ Cepat — gak perlu nunggu load wiki satu-satu
+- ⚡ Cepat — kunjungan pertama ambil dari wiki, habis itu instan dari penyimpanan lokal
+- 📴 Offline — walkthrough yang sudah pernah diambil bisa dibaca tanpa internet
 - 🧭 Satu halaman utuh — sidebar navigasi + scrollspy per bagian
-- ✅ Progress baca per-bagian (localStorage, tanpa akun)
-- 🔎 Search instan pakai SQLite FTS5
-- ✨ **Ambil game apa pun langsung dari web** — ketik di pencarian, app-nya scrape dari wiki publik saat itu juga
-- 🧩 Mudah ditambah game baru via CLI (`add-game`) kalau mau sumber yang lebih spesifik
+- ✅ Progress baca per-bagian (tanpa akun)
+- 🔎 Pencarian instan di katalog lokal — plus **“Ambil dari wiki publik”** untuk game apa pun yang belum ada
+- 📱 Jalan sebagai web di desktop **dan** sebagai **APK Android standalone** (Capacitor)
 
-## Quickstart
+## Quickstart (desktop)
 
 ```bash
-npm install          # dependencies
-npm run seed         # scrape semua game di scripts/games.config.ts → data/walkthroughs.db
+npm install
 npm run dev          # http://localhost:3000
 ```
 
-Production:
+Production (static export + server statis kecil):
 
 ```bash
-npm run build
-npm start
+npm run build        # static export → out/
+npm start            # http://localhost:3765  (ganti port: npm start -- -p 8080)
 ```
 
-## Tambah game baru
+## Katalog awal
 
-**Cara cepat (CLI):**
+Repo ini menyertakan katalog lama (**16 game**, hasil scrape awal) di `public/seed/catalog.json`. Saat pertama kali dibuka, aplikasi mengimpor katalog itu ke penyimpanan lokal satu kali. Game lain diambil on-demand lewat pencarian.
 
-```bash
-npm run add-game -- \
-  --slug=hollow-knight \
-  --title="Hollow Knight" \
-  --api=https://hollowknight.fandom.com \
-  --pages="Walkthrough" \
-  --platform="PC · Switch" --year=2017 \
-  --desc="Metroidvania dari Team Cherry."
-```
-
-Kalau `--pages` tidak diisi, script akan coba auto-discover halaman walkthrough di wiki tersebut.
-
-**Cara batch:** tambahkan entry ke `scripts/games.config.ts`, lalu `npm run seed` (atau `npm run seed slug-game` untuk satu game saja).
-
-> Catatan: tiap wiki beda-beda struktur walkthrough-nya. Isi `pages` dengan judul halaman yang tepat (halaman bisa dicek dulu di wikinya). Game di-scrape per halaman; kalau `pages` lebih dari satu, judul halaman otomatis jadi grup di sidebar.
-
-## Ambil game langsung dari web (tanpa CLI)
+## Ambil game langsung dari web
 
 Di kolom pencarian, ketik nama game yang belum ada di katalog → muncul baris
 **“Ambil dari wiki publik”**. Pilih itu (atau tekan Enter), dan app akan:
 
 1. Mencari wiki utama (peta kurasi untuk game populer + tebakan domain `namagame.fandom.com` / `namagame.wiki.gg`), memverifikasi ke API wiki aslinya, lalu mengambil halaman walkthrough khususnya (`Walkthrough`, `Guide`, hub misi) — atau artikel game-nya kalau memang tidak ada.
 2. Kalau hasilnya cuma artikel tipis (atau wiki-nya tidak ketemu), app lanjut ke sumber yang isinya memang walkthrough: **Fextralife** (halaman standar *"Game Progress Route"* — walkthrough terurut per area, mis. Dark Souls III & Bloodborne) lalu **StrategyWiki** (panduan multi-halaman lewat *"Table of Contents"* — semua chapter dimuat sekaligus sebagai grup, mis. Chrono Trigger & Zelda: A Link to the Past).
-3. Hasil yang paling kuat (paling lengkap) yang dipakai, dibersihkan lewat `htmlclean`, dan disimpan ke SQLite — jadi kunjungan berikutnya instan, dan game itu otomatis masuk katalog + pencarian.
+3. Hasil yang paling kuat (paling lengkap) yang dipakai, dibersihkan lewat `htmlclean`, dan disimpan ke penyimpanan lokal — jadi kunjungan berikutnya instan, dan game itu otomatis masuk katalog + pencarian.
 
-Kunjungan pertama butuh ±3–6 detik (bisa ~15 detik untuk panduan multi-halaman besar); habis itu selalu cepat. Kalau tidak ada sumber yang cocok, game tidak dimasukkan dan dicoba ulang paling cepat 10 menit kemudian.
+Kunjungan pertama butuh ±3–6 detik (bisa ~15 detik untuk panduan multi-halaman besar); habis itu selalu cepat — dan tetap bisa dibuka tanpa internet. Kalau tidak ada sumber yang cocok, game tidak dimasukkan dan dicoba ulang paling cepat 10 menit kemudian.
 
-Walkthrough yang sudah tersimpan bisa **dihapus** kapan saja: lewat ikon hapus di pojok cover kartu game di katalog, atau tombol **“Hapus dari katalog”** di halaman game-nya. Yang dibuang cuma salinan lokal (termasuk progres baca di browser); gamenya bisa diambil ulang dari wiki publik kapan pun.
+Walkthrough yang sudah tersimpan bisa **dihapus** kapan saja: lewat ikon hapus di pojok cover kartu game di katalog, atau tombol **“Hapus dari katalog”** di halaman game-nya. Yang dibuang cuma salinan lokal (termasuk progres baca); gamenya bisa diambil ulang dari wiki publik kapan pun.
+
+## Install di Android (APK)
+
+Build debug ada di root repo setelah proses build: `WalkthroughHub-1.0-debug.apk` (tidak di-commit). Pindahkan ke HP → buka → izinkan *install dari sumber tidak dikenal*. Minimal Android 7 (API 24).
+
+Build sendiri:
+
+```bash
+npm run build                 # static export → out/
+npx cap sync android          # copy out/ ke project Android
+cd android
+JAVA_HOME=/path/to/jdk21 ANDROID_HOME=/path/to/android-sdk ./gradlew assembleDebug
+# hasil: android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+Butuh **JDK 21** dan **Android SDK** (platform 36 + build-tools 36). Alternatif env var: isi `android/local.properties` dengan `sdk.dir=/path/ke/android-sdk`.
+
+> Semua data (katalog, walkthrough, progres) tersimpan di perangkat; APK ini tidak butuh server dan tidak mengirim apa pun ke mana pun — kecuali permintaan langsung ke API wiki publik saat mengambil game baru. Ikon & splash dibangun dari `assets/` via `npx @capacitor/assets generate --android`.
 
 ## Arsitektur
 
 ```
-scripts/                  # CLI scraper (jalan di Node, di luar app)
-  games.config.ts         # daftar game + halaman sumber per game
-  seed.ts                 # scrape + rebuild database
-  add-game.ts             # tambah satu game dari CLI
 src/
-  lib/db.ts               # node:sqlite (built-in Node) — query, FTS5, upsert
-  lib/slug.ts             # slugify (dipakai client + server)
-  lib/wiki/mediawiki.ts   # client MediaWiki API (parse page, cover, search)
-  lib/wiki/htmlclean.ts   # sanitasi HTML wiki → section HTML yang aman & bersih
+  lib/store.ts            # penyimpanan IndexedDB (games + sections)
+  lib/router.ts           # hash router (#/ dan #/games/<slug>)
+  lib/slug.ts             # slugify
+  lib/wiki/mediawiki.ts   # client MediaWiki API (parse, cover, search)
+  lib/wiki/htmlclean.ts   # sanitasi HTML wiki → section yang aman & bersih (DOMParser)
   lib/wiki/discover.ts    # pencarian kandidat wiki + halaman walkthrough
   lib/wiki/ingest.ts      # ingest on-demand (dipakai halaman game)
-  app/                    # Next.js App Router
-    page.tsx              # home: hero + search + katalog
-    games/[slug]/page.tsx # halaman walkthrough (SSR semua section + ingest on-demand)
-    api/search/route.ts   # search endpoint (FTS5 + fallback LIKE)
-  components/             # SearchBox, SidebarNav, ProgressProvider, dll
-data/walkthroughs.db      # SQLite (git-ignored, regenerate dengan `npm run seed`)
+  views/                  # HomeView (katalog) + GameView (walkthrough)
+  app/                    # shell Next.js (static export, client-side routing)
+  components/             # SearchBox, SidebarNav, dll
+scripts/serve.ts          # static server desktop (npm start)
+public/seed/catalog.json  # katalog awal (diimpor otomatis saat pertama buka)
+android/                  # project Capacitor Android
+assets/                   # sumber ikon + splash APK
+capacitor.config.ts       # konfigurasi Android (webDir: out)
 ```
 
-Teknologi: **Next.js 16** (App Router, Turbopack) · **Tailwind CSS 4** · **node:sqlite** (tanpa native deps) · **node-html-parser** (scraper).
+Teknologi: **Next.js 16** (static export, Turbopack) · **Tailwind CSS 4** · **IndexedDB** · **DOMParser** · **Capacitor 8** (Android).
 
 ### Bagaimana konten diproses
 
-1. Script fetch halaman wiki via `action=parse` (MediaWiki API).
+1. Aplikasi fetch halaman wiki via `action=parse` (MediaWiki API) — langsung dari browser/WebView, tanpa proxy.
 2. `htmlclean.ts` membuang script/navbox/infobox/referensi, men-sanitasi atribut (allowlist), meng-absolutize semua link/gambar, lalu memotong konten menjadi **section** per heading (h1–h2, atau sampai h3 untuk sumber yang memakai sub-heading sebagai bab — seperti "Game Progress Route" Fextralife).
-3. Section disimpan ke SQLite; HTML-nya dirender ulang di app dengan styling sendiri (`.prose-wt`).
+3. Section disimpan di IndexedDB perangkat; HTML-nya dirender ulang di app dengan styling sendiri (`.prose-wt`).
 
 ## Lisensi konten
 

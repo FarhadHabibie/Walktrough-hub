@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Native shell — holds generated web assets + gradle output.
+    "android/**",
   ]),
 ]);
 
