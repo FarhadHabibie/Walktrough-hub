@@ -1,0 +1,204 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #0b0e14;
+  --color-surface: #121724;
+  --color-surface2: #1a2133;
+  --color-edge: #222b41;
+  --color-ink: #e8ebf4;
+  --color-muted: #97a1b8;
+  --color-accent: #8b7bff;
+  --color-accent2: #38bdf8;
+  --color-ok: #34d399;
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
+}
+
+html {
+  scroll-behavior: smooth;
+  color-scheme: dark;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-ink);
+}
+
+::selection {
+  background: color-mix(in oklab, var(--color-accent) 45%, transparent);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #2a3550 transparent;
+}
+
+/* ---------- walkthrough prose (renders sanitized wiki HTML) ---------- */
+
+.prose-wt {
+  font-size: 0.985rem;
+  line-height: 1.8;
+  color: #cfd6e6;
+  overflow-wrap: break-word;
+}
+
+.prose-wt > :first-child {
+  margin-top: 0;
+}
+
+.prose-wt p {
+  margin: 0.9em 0;
+}
+
+.prose-wt h2,
+.prose-wt h3,
+.prose-wt h4,
+.prose-wt h5,
+.prose-wt h6 {
+  color: var(--color-ink);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 1.7em 0 0.55em;
+}
+
+.prose-wt h3 { font-size: 1.13rem; }
+.prose-wt h4 { font-size: 1.02rem; }
+.prose-wt h5,
+.prose-wt h6 { font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-muted); }
+
+.prose-wt a {
+  color: var(--color-accent2);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in oklab, var(--color-accent2) 40%, transparent);
+  text-underline-offset: 3px;
+  transition: color 0.15s;
+}
+
+.prose-wt a:hover {
+  color: #7dd3fc;
+  text-decoration-color: currentColor;
+}
+
+.prose-wt strong { color: var(--color-ink); font-weight: 600; }
+
+.prose-wt ul,
+.prose-wt ol {
+  margin: 0.9em 0;
+  padding-left: 1.5em;
+}
+
+.prose-wt ul { list-style: disc; }
+.prose-wt ol { list-style: decimal; }
+.prose-wt li { margin: 0.32em 0; }
+.prose-wt li::marker { color: var(--color-muted); }
+.prose-wt ul ul,
+.prose-wt ol ol,
+.prose-wt ul ol,
+.prose-wt ol ul { margin: 0.3em 0; }
+
+.prose-wt dl { margin: 0.9em 0; }
+.prose-wt dt { font-weight: 600; color: var(--color-ink); margin-top: 0.6em; }
+.prose-wt dd { margin-left: 1.25em; color: #cfd6e6; }
+
+.prose-wt img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  max-height: 560px;
+  width: auto;
+  margin: 1.1em 0;
+  border-radius: 0.75rem;
+  border: 1px solid var(--color-edge);
+  background: var(--color-surface);
+}
+
+.prose-wt figure { margin: 1.3em 0; }
+.prose-wt figcaption {
+  font-size: 0.82rem;
+  color: var(--color-muted);
+  margin-top: 0.45em;
+}
+
+.prose-wt blockquote {
+  margin: 1.1em 0;
+  padding: 0.35em 1.1em;
+  border-left: 3px solid var(--color-accent);
+  background: color-mix(in oklab, var(--color-accent) 6%, transparent);
+  border-radius: 0.35rem;
+  color: var(--color-muted);
+}
+
+.prose-wt table {
+  display: block;
+  overflow-x: auto;
+  max-width: 100%;
+  width: max-content;
+  min-width: min(100%, 30rem);
+  border-collapse: collapse;
+  margin: 1.2em 0;
+  font-size: 0.875rem;
+}
+
+.prose-wt caption {
+  caption-side: top;
+  text-align: left;
+  font-size: 0.82rem;
+  color: var(--color-muted);
+  padding: 0.25em 0;
+}
+
+.prose-wt th,
+.prose-wt td {
+  border: 1px solid var(--color-edge);
+  padding: 0.45em 0.75em;
+  text-align: left;
+  vertical-align: top;
+}
+
+.prose-wt th {
+  background: var(--color-surface2);
+  color: var(--color-ink);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.prose-wt tbody tr:nth-child(even) td {
+  background: color-mix(in oklab, var(--color-surface) 65%, transparent);
+}
+
+.prose-wt code,
+.prose-wt pre {
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+}
+
+.prose-wt code {
+  background: var(--color-surface2);
+  border: 1px solid var(--color-edge);
+  border-radius: 0.35rem;
+  padding: 0.1em 0.4em;
+}
+
+.prose-wt pre {
+  background: var(--color-surface2);
+  border: 1px solid var(--color-edge);
+  border-radius: 0.65rem;
+  padding: 0.9em 1.1em;
+  overflow-x: auto;
+  margin: 1.1em 0;
+}
+
+.prose-wt pre code {
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.prose-wt hr {
+  border: none;
+  border-top: 1px solid var(--color-edge);
+  margin: 1.8em 0;
+}
+
+.prose-wt sup { font-size: 0.72em; }
+.prose-wt small { font-size: 0.85em; color: var(--color-muted); }
