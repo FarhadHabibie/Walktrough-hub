@@ -13,8 +13,8 @@
  * If --pages is omitted, the script tries to discover walkthrough pages
  * on the wiki automatically.
  */
-import { makeWikiClient } from "./lib/mediawiki.ts";
-import { DEFAULT_SKIP_PATTERN } from "./games.config.ts";
+import { makeWikiClient } from "../src/lib/wiki/mediawiki.ts";
+import { DEFAULT_SKIP_PATTERN } from "../src/lib/wiki/htmlclean.ts";
 import { seedGame } from "./seed.ts";
 import { rebuildFts, dbStats, getGameBySlug } from "../src/lib/db.ts";
 import type { GameConfig } from "./games.config.ts";

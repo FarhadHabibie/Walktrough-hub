@@ -10,12 +10,7 @@ const nextConfig: NextConfig = {
     },
   },
   images: {
-    remotePatterns: [
-      { protocol: "https", hostname: "static.wikia.nocookie.net" },
-      { protocol: "https", hostname: "**.fandom.com" },
-      { protocol: "https", hostname: "**.wiki.gg" },
-      { protocol: "https", hostname: "minecraft.wiki" },
-    ],
+    remotePatterns: [{ protocol: "https", hostname: "**" }],
   },
 };
 

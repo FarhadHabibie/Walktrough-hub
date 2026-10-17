@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { slugify } from "@/lib/slug";
 import type { Game } from "@/lib/types";
 
 type Result = Pick<
@@ -46,11 +47,11 @@ export default function SearchBox({ autoFocus = false }: { autoFocus?: boolean }
         if (!res.ok) throw new Error("search failed");
         const data = (await res.json()) as { results: Result[] };
         setResults(data.results ?? []);
-        setOpen(true);
-        setActive(-1);
       } catch {
         setResults([]);
       } finally {
+        setActive(-1);
+        setOpen(true);
         setLoading(false);
       }
     }, 180);
@@ -74,6 +75,17 @@ export default function SearchBox({ autoFocus = false }: { autoFocus?: boolean }
     router.push(`/games/${slug}`);
   };
 
+  /** Fetch a game straight from public wikis on first open. */
+  const openFromWiki = () => {
+    const term = q.trim();
+    const slug = slugify(term);
+    if (term.length < 2 || !slug) return;
+    setOpen(false);
+    setQ("");
+    setResults([]);
+    router.push(`/games/${slug}?title=${encodeURIComponent(term)}`);
+  };
+
   const hasQuery = q.trim().length >= 2;
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -81,17 +93,18 @@ export default function SearchBox({ autoFocus = false }: { autoFocus?: boolean }
       setOpen(false);
       return;
     }
-    if (!hasQuery || !open || results.length === 0) return;
-    if (e.key === "ArrowDown") {
+    if (!hasQuery || !open) return;
+    if (e.key === "ArrowDown" && results.length > 0) {
       e.preventDefault();
       setActive((i) => Math.min(i + 1, results.length - 1));
-    } else if (e.key === "ArrowUp") {
+    } else if (e.key === "ArrowUp" && results.length > 0) {
       e.preventDefault();
       setActive((i) => Math.max(i - 1, -1));
     } else if (e.key === "Enter") {
       e.preventDefault();
       const pick = active >= 0 ? results[active] : results[0];
       if (pick) go(pick.slug);
+      else openFromWiki();
     }
   };
 
@@ -117,15 +130,16 @@ export default function SearchBox({ autoFocus = false }: { autoFocus?: boolean }
         )}
       </div>
 
-      {open && (
+      {open && hasQuery && (
         <div
           id="wt-search-results"
           role="listbox"
           className="absolute z-30 mt-2 w-full overflow-hidden rounded-2xl border border-edge bg-surface shadow-2xl shadow-black/50"
         >
           {results.length === 0 && !loading ? (
-            <div className="px-4 py-3.5 text-sm text-muted">
-              Tidak ada game cocok untuk &ldquo;{q.trim()}&rdquo;.
+            <div className="px-3.5 py-3 text-sm text-muted">
+              &ldquo;{q.trim()}&rdquo; belum ada di katalog — coba ambil
+              langsung dari wiki:
             </div>
           ) : (
             results.map((r, i) => (
@@ -142,7 +156,7 @@ export default function SearchBox({ autoFocus = false }: { autoFocus?: boolean }
                 {r.cover_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={r.cover_url}
+                    src={`/api/cover/${r.slug}`}
                     alt=""
                     className="h-12 w-9 shrink-0 rounded-md border border-edge object-cover"
                   />
@@ -165,6 +179,29 @@ export default function SearchBox({ autoFocus = false }: { autoFocus?: boolean }
               </button>
             ))
           )}
+
+          <div className="border-t border-edge">
+            <button
+              onClick={openFromWiki}
+              className="flex w-full items-center gap-3 px-3.5 py-3 text-left transition hover:bg-surface2"
+            >
+              <span aria-hidden className="grid h-12 w-9 shrink-0 place-items-center rounded-md border border-dashed border-accent/40 bg-accent/10 text-base">
+                ✨
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium text-accent">
+                  Ambil &ldquo;{q.trim()}&rdquo; dari wiki publik
+                </span>
+                <span className="block text-xs text-muted">
+                  Walkthrough di-scrape otomatis saat halaman dibuka — sekali
+                  saja, lalu tersimpan.
+                </span>
+              </span>
+              <span aria-hidden className="shrink-0 text-muted">
+                →
+              </span>
+            </button>
+          </div>
         </div>
       )}
     </div>

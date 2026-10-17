@@ -26,7 +26,10 @@ export default function Home() {
         <p className="mt-5 max-w-2xl text-[15px] leading-relaxed text-muted">
           Cari game, buka walkthrough-nya yang lengkap dari awal sampai tamat —
           langsung dimuat semua, tanpa klik-klik chapter dan tanpa iklan. Progres
-          baca otomatis tersimpan.
+          baca otomatis tersimpan. Game belum ada di katalog? Ketik namanya,
+          lalu pilih{" "}
+          <span className="text-ink">“Ambil dari wiki publik”</span> — app-nya
+          men-scrape otomatis dan menampilkannya langsung.
         </p>
         <div className="mt-8">
           <SearchBox autoFocus />

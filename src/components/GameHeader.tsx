@@ -17,7 +17,7 @@ export default function GameHeader({ game }: { game: Game }) {
         <div className="relative h-56 w-40 shrink-0 overflow-hidden rounded-2xl border border-edge bg-surface2 shadow-xl shadow-black/30 sm:h-64 sm:w-48">
           {game.cover_url ? (
             <Image
-              src={game.cover_url}
+              src={`/api/cover/${game.slug}`}
               alt={`Cover ${game.title}`}
               fill
               sizes="192px"

@@ -149,6 +149,10 @@ const ALLOWED_ATTRS: Record<string, string[]> = {
   th: ["colspan", "rowspan"],
 };
 
+/** Default sections dropped everywhere (see CleanOptions.skipPattern). */
+export const DEFAULT_SKIP_PATTERN =
+  /^(trivia|related content|video walkthrough|references|external links|see also|notes|navigation|site navigation|sources|gallery|bugs)$/i;
+
 export type CleanSection = {
   title: string;
   anchor: string;

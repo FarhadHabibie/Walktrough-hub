@@ -11,7 +11,7 @@ export default function GameCard({ game }: { game: Game }) {
       <div className="relative aspect-[4/5] w-full overflow-hidden bg-surface2">
         {game.cover_url ? (
           <Image
-            src={game.cover_url}
+            src={`/api/cover/${game.slug}`}
             alt={`Cover ${game.title}`}
             fill
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"

@@ -1,21 +1,31 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import GameHeader from "@/components/GameHeader";
 import SectionHead from "@/components/SectionHead";
 import SidebarNav from "@/components/SidebarNav";
 import { ProgressProvider } from "@/components/progress";
 import { getGameBySlug, getSectionsForGame } from "@/lib/db";
+import { slugify } from "@/lib/slug";
+import { deriveTitleFromSlug, ensureGame } from "@/lib/wiki/ingest";
 import type { SectionMeta } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
-type Props = { params: Promise<{ slug: string }> };
+type Props = {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ title?: string }>;
+};
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const game = getGameBySlug(slug);
-  if (!game) notFound();
+  if (!game) {
+    return {
+      title: `${deriveTitleFromSlug(slug)} — mencari walkthrough…`,
+      robots: { index: false },
+    };
+  }
   return {
     title: `${game.title} — Walkthrough lengkap`,
     description:
@@ -24,10 +34,30 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default async function GamePage({ params }: Props) {
-  const { slug } = await params;
-  const game = getGameBySlug(slug);
-  if (!game) notFound();
+export default async function GamePage({ params, searchParams }: Props) {
+  const [{ slug }, sp] = await Promise.all([params, searchParams]);
+  const titleHint =
+    typeof sp.title === "string" && sp.title.trim().length >= 2
+      ? sp.title.trim()
+      : undefined;
+
+  // Normalize odd slugs (?title= is carried over when present).
+  const cleanSlug = slugify(slug);
+  if (cleanSlug && cleanSlug !== slug) {
+    redirect(
+      titleHint
+        ? `/games/${cleanSlug}?title=${encodeURIComponent(titleHint)}`
+        : `/games/${cleanSlug}`,
+    );
+  }
+
+  let game = getGameBySlug(slug);
+  if (!game) {
+    // First visit: try to fetch the walkthrough from a public wiki on demand.
+    game = await ensureGame(slug, titleHint);
+    if (!game) notFound();
+  }
+  if (titleHint) redirect(`/games/${slug}`);
 
   const sections = getSectionsForGame(game.id);
   const meta: SectionMeta[] = sections.map((s) => ({

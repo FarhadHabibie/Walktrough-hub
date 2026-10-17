@@ -9,8 +9,10 @@ export default function NotFound() {
           Game tidak ditemukan
         </h1>
         <p className="mt-3 text-sm text-muted">
-          Walkthrough yang kamu cari tidak ada di katalog. Coba cari game lain
-          atau kembali ke daftar.
+          Walkthrough yang kamu cari tidak ada di katalog dan tidak ditemukan
+          di wiki publik. Coba tulis nama game yang lebih lengkap di pencarian
+          (mis. &ldquo;Hollow Knight&rdquo;), lalu pilih{" "}
+          <span className="text-ink">Ambil dari wiki publik</span>.
         </p>
         <Link
           href="/"

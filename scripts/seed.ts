@@ -5,9 +5,13 @@
  *   node scripts/seed.ts              # seed every game in games.config.ts
  *   node scripts/seed.ts elden-ring   # seed only specific slugs
  */
-import { makeWikiClient, sleep } from "./lib/mediawiki.ts";
-import { cleanAndSplit, type CleanSection } from "./lib/htmlclean.ts";
-import { DEFAULT_SKIP_PATTERN, GAMES, type GameConfig } from "./games.config.ts";
+import { makeWikiClient, sleep } from "../src/lib/wiki/mediawiki.ts";
+import {
+  cleanAndSplit,
+  DEFAULT_SKIP_PATTERN,
+  type CleanSection,
+} from "../src/lib/wiki/htmlclean.ts";
+import { GAMES, type GameConfig } from "./games.config.ts";
 import { dbStats, rebuildFts, replaceSections, upsertGame } from "../src/lib/db.ts";
 
 export async function scrapeGame(config: GameConfig): Promise<CleanSection[]> {

@@ -1,6 +1,7 @@
 /**
- * Minimal MediaWiki API client used by the seed / add-game scripts.
- * Works with Fandom, wiki.gg and other MediaWiki-based wikis.
+ * Minimal MediaWiki API client used by the seed / add-game scripts and by
+ * the on-demand web ingestion. Works with Fandom, wiki.gg and other
+ * MediaWiki-based wikis.
  */
 
 const UA =
@@ -19,6 +20,10 @@ export type WikiClient = {
   fetchPage: (page: string) => Promise<ParsedPage>;
   fetchCover: (page: string) => Promise<string | null>;
   pageExists: (page: string) => Promise<boolean>;
+  /** Which of the given page titles exist (resolves redirects), in one API call. */
+  existingPages: (titles: string[]) => Promise<Set<string>>;
+  /** Wikitext size (bytes) for existing pages, keyed by lowercase title. */
+  pageSizes: (titles: string[]) => Promise<Map<string, number>>;
   searchTitles: (term: string, limit?: number) => Promise<string[]>;
 };
 
@@ -143,6 +148,61 @@ export function makeWikiClient(apiUrl: string): WikiClient {
       } catch {
         return false;
       }
+    },
+
+    async existingPages(titles: string[]): Promise<Set<string>> {
+      const wanted = titles.filter(Boolean);
+      if (wanted.length === 0) return new Set();
+      try {
+        const data = (await call({
+          action: "query",
+          titles: wanted.join("|"),
+          redirects: "1",
+        })) as {
+          query?: {
+            normalized?: Array<{ from: string; to: string }>;
+            redirects?: Array<{ from: string; to: string }>;
+            pages?: Array<{ title: string; missing?: boolean }>;
+          };
+        };
+        const q = data.query ?? {};
+        const live = new Set(
+          (q.pages ?? []).filter((p) => !p.missing).map((p) => p.title),
+        );
+        const alias = new Map<string, string>();
+        for (const n of q.normalized ?? []) alias.set(n.from, n.to);
+        for (const r of q.redirects ?? []) alias.set(r.from, r.to);
+        const out = new Set<string>();
+        for (const t of wanted) {
+          const resolved = alias.get(t) ?? t;
+          if (live.has(resolved) || live.has(t)) out.add(t);
+        }
+        return out;
+      } catch {
+        return new Set();
+      }
+    },
+
+    async pageSizes(titles: string[]): Promise<Map<string, number>> {
+      const wanted = titles.filter(Boolean);
+      const out = new Map<string, number>();
+      if (wanted.length === 0) return out;
+      try {
+        const data = (await call({
+          action: "query",
+          titles: wanted.join("|"),
+          prop: "info",
+          redirects: "1",
+        })) as {
+          query?: { pages?: Array<{ title: string; length?: number; missing?: boolean }> };
+        };
+        for (const p of data.query?.pages ?? []) {
+          if (!p.missing) out.set(p.title.toLowerCase(), p.length ?? 0);
+        }
+      } catch {
+        // sizes unavailable — callers fall back to their default priority
+      }
+      return out;
     },
 
     async searchTitles(term: string, limit = 10): Promise<string[]> {
