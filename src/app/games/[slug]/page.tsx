@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import DeleteGameButton from "@/components/DeleteGameButton";
 import GameHeader from "@/components/GameHeader";
 import SectionHead from "@/components/SectionHead";
 import SidebarNav from "@/components/SidebarNav";
@@ -71,13 +72,18 @@ export default async function GamePage({ params, searchParams }: Props) {
 
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6">
-      <div className="pt-6">
+      <div className="flex items-center justify-between gap-4 pt-6">
         <Link
           href="/"
           className="inline-flex items-center gap-1.5 text-sm text-muted transition hover:text-ink"
         >
           <span aria-hidden>←</span> Semua game
         </Link>
+        <DeleteGameButton
+          slug={game.slug}
+          title={game.title}
+          variant="page"
+        />
       </div>
 
       <div className="pt-6">

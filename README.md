@@ -57,6 +57,8 @@ Di kolom pencarian, ketik nama game yang belum ada di katalog → muncul baris
 
 Kunjungan pertama butuh ±3–6 detik (bisa ~15 detik untuk panduan multi-halaman besar); habis itu selalu cepat. Kalau tidak ada sumber yang cocok, game tidak dimasukkan dan dicoba ulang paling cepat 10 menit kemudian.
 
+Walkthrough yang sudah tersimpan bisa **dihapus** kapan saja: lewat ikon hapus di pojok cover kartu game di katalog, atau tombol **“Hapus dari katalog”** di halaman game-nya. Yang dibuang cuma salinan lokal (termasuk progres baca di browser); gamenya bisa diambil ulang dari wiki publik kapan pun.
+
 ## Arsitektur
 
 ```

@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import DeleteGameButton from "@/components/DeleteGameButton";
 import type { Game } from "@/lib/types";
 
 export default function GameCard({ game }: { game: Game }) {
@@ -28,6 +29,7 @@ export default function GameCard({ game }: { game: Game }) {
         <span className="absolute bottom-2.5 left-2.5 rounded-full border border-edge/60 bg-bg/80 px-2.5 py-0.5 font-mono text-[11px] text-ink/90 backdrop-blur">
           {game.section_count} bagian
         </span>
+        <DeleteGameButton slug={game.slug} title={game.title} variant="card" />
       </div>
       <div className="p-3.5">
         <div className="line-clamp-2 min-h-10 text-sm font-semibold leading-snug tracking-tight text-ink">
