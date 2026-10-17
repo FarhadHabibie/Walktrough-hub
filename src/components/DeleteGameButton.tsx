@@ -81,7 +81,7 @@ export default function DeleteGameButton({
           e.stopPropagation();
           void onDelete();
         }}
-        className="absolute right-2 top-2 z-10 grid size-8 place-items-center rounded-full border border-white/15 bg-black/60 text-white/80 backdrop-blur transition hover:border-red-400/70 hover:bg-black/80 hover:text-red-300 disabled:opacity-50"
+        className="absolute right-2 top-2 z-10 grid size-8 place-items-center rounded-lg border border-edge bg-bg/90 text-muted transition-colors hover:border-red-400/70 hover:text-red-300 disabled:opacity-50"
       >
         {icon}
       </button>
@@ -94,7 +94,7 @@ export default function DeleteGameButton({
       disabled={busy}
       aria-label={`Hapus walkthrough ${title} dari katalog`}
       onClick={() => void onDelete()}
-      className="inline-flex items-center gap-1.5 rounded-full border border-edge bg-surface px-3 py-1.5 text-xs text-muted transition hover:border-red-400/50 hover:text-red-300 disabled:opacity-50"
+      className="inline-flex items-center gap-1.5 rounded-lg border border-edge bg-surface px-3 py-1.5 text-xs text-muted transition-colors hover:border-red-400/50 hover:text-red-300 disabled:opacity-50"
     >
       {busy ? (
         "Menghapus…"

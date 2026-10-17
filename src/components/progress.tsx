@@ -163,5 +163,12 @@ export function useProgress(): ProgressState {
 export function scrollToAnchor(anchor: string | null) {
   if (!anchor) return;
   const el = document.getElementById(anchor);
-  if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  if (!el) return;
+  const reduceMotion = window.matchMedia(
+    "(prefers-reduced-motion: reduce)",
+  ).matches;
+  el.scrollIntoView({
+    behavior: reduceMotion ? "auto" : "smooth",
+    block: "start",
+  });
 }

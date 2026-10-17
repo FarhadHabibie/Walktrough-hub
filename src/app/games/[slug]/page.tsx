@@ -101,7 +101,11 @@ export default async function GamePage({ params, searchParams }: Props) {
                 return (
                   <div key={s.id}>
                     {showGroup && (
-                      <h2 className="mb-6 mt-2 border-l-2 border-accent pl-3 font-mono text-sm uppercase tracking-[0.15em] text-accent">
+                      <h2
+                        className={`mb-6 text-lg font-semibold tracking-tight ${
+                          i > 0 ? "mt-12 border-t border-edge pt-6" : "mt-2"
+                        }`}
+                      >
                         {s.group_title}
                       </h2>
                     )}
@@ -119,7 +123,7 @@ export default async function GamePage({ params, searchParams }: Props) {
                 );
               })}
 
-              <div className="mt-4 rounded-2xl border border-edge bg-surface p-5 text-sm leading-relaxed text-muted">
+              <div className="mt-4 rounded-xl border border-edge bg-surface p-5 text-sm leading-relaxed text-muted">
                 <div className="font-medium text-ink">Sumber & lisensi</div>
                 <p className="mt-1.5">
                   Walkthrough ini diambil dari{" "}

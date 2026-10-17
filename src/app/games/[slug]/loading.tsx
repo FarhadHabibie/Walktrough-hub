@@ -6,18 +6,18 @@ export default function GameLoading() {
         detik, sekali saja).
       </p>
       <div className="flex flex-col gap-6 sm:flex-row">
-        <div className="h-56 w-40 shrink-0 rounded-2xl bg-surface2 sm:h-64 sm:w-48" />
+        <div className="h-56 w-40 shrink-0 rounded-xl bg-surface2 sm:h-64 sm:w-48" />
         <div className="flex-1 space-y-4">
-          <div className="h-5 w-40 rounded-full bg-surface2" />
-          <div className="h-10 w-2/3 rounded-xl bg-surface2" />
-          <div className="h-4 w-64 rounded-full bg-surface2" />
-          <div className="h-24 w-full max-w-2xl rounded-xl bg-surface2" />
+          <div className="h-5 w-40 rounded-md bg-surface2" />
+          <div className="h-10 w-2/3 rounded-lg bg-surface2" />
+          <div className="h-4 w-64 rounded-md bg-surface2" />
+          <div className="h-24 w-full max-w-2xl rounded-lg bg-surface2" />
         </div>
       </div>
       <div className="mt-12 grid gap-10 lg:grid-cols-[300px_minmax(0,1fr)]">
         <div className="hidden space-y-2 lg:block">
           {Array.from({ length: 10 }).map((_, i) => (
-            <div key={i} className="h-9 rounded-xl bg-surface2" />
+            <div key={i} className="h-9 rounded-lg bg-surface2" />
           ))}
         </div>
         <div className="space-y-6">

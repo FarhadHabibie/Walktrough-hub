@@ -14,7 +14,7 @@ export default function GameHeader({ game }: { game: Game }) {
   return (
     <div className="mb-10">
       <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
-        <div className="relative h-56 w-40 shrink-0 overflow-hidden rounded-2xl border border-edge bg-surface2 shadow-xl shadow-black/30 sm:h-64 sm:w-48">
+        <div className="relative h-56 w-40 shrink-0 overflow-hidden rounded-xl border border-edge bg-surface2 sm:h-64 sm:w-48">
           {game.cover_url ? (
             <Image
               src={`/api/cover/${game.slug}`}
@@ -25,7 +25,7 @@ export default function GameHeader({ game }: { game: Game }) {
               className="object-cover"
             />
           ) : (
-            <div className="grid h-full w-full place-items-center bg-gradient-to-br from-surface2 via-surface to-surface2">
+            <div className="grid h-full w-full place-items-center bg-surface2">
               <span className="font-mono text-5xl font-bold text-muted/60">
                 {game.title.charAt(0)}
               </span>
@@ -34,15 +34,12 @@ export default function GameHeader({ game }: { game: Game }) {
         </div>
 
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2 font-mono text-[11px] uppercase tracking-[0.15em] text-muted">
-            <span className="rounded-full border border-edge bg-surface px-2.5 py-1">
-              Walkthrough
-            </span>
-            <span className="rounded-full border border-edge bg-surface px-2.5 py-1">
+          <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
+            <span className="rounded-md border border-edge bg-surface px-2 py-0.5">
               {total} bagian
             </span>
             {game.wiki_name && (
-              <span className="rounded-full border border-edge bg-surface px-2.5 py-1">
+              <span className="rounded-md border border-edge bg-surface px-2 py-0.5">
                 {game.wiki_name}
               </span>
             )}
@@ -61,7 +58,7 @@ export default function GameHeader({ game }: { game: Game }) {
         </div>
       </div>
 
-      <div className="mt-7 rounded-2xl border border-edge bg-surface p-4 sm:p-5">
+      <div className="mt-7 rounded-xl border border-edge bg-surface p-4 sm:p-5">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="min-w-0 flex-1">
             <div className="flex items-baseline justify-between gap-3">
@@ -75,7 +72,7 @@ export default function GameHeader({ game }: { game: Game }) {
             </div>
             <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-surface2">
               <div
-                className="h-full rounded-full bg-gradient-to-r from-accent to-accent2 transition-all duration-500"
+                className="h-full rounded-full bg-accent transition-[width] duration-200"
                 style={{ width: `${pct}%` }}
               />
             </div>
@@ -90,21 +87,21 @@ export default function GameHeader({ game }: { game: Game }) {
                     reset();
                   }
                 }}
-                className="rounded-full border border-edge bg-surface2 px-3.5 py-2 text-xs text-muted transition hover:border-red-400/50 hover:text-red-300"
+                className="rounded-lg border border-edge bg-surface2 px-3.5 py-2 text-xs text-muted transition-colors hover:border-red-400/50 hover:text-red-300"
               >
                 Reset
               </button>
             )}
             {allDone ? (
-              <span className="rounded-full border border-ok/50 bg-ok/15 px-4 py-2 text-xs font-medium text-ok">
-                🎉 Semua bagian selesai!
+              <span className="rounded-md border border-ok/50 bg-ok/15 px-3.5 py-2 text-xs font-medium text-ok">
+                Semua bagian selesai
               </span>
             ) : (
               <button
                 type="button"
                 disabled={!ready || !nextAnchor}
                 onClick={() => scrollToAnchor(nextAnchor)}
-                className="max-w-[240px] truncate rounded-full border border-accent/50 bg-accent/15 px-4 py-2 text-xs font-medium text-accent transition hover:bg-accent/25 disabled:opacity-50"
+                className="max-w-[240px] truncate rounded-lg border border-accent/50 bg-accent/15 px-4 py-2 text-xs font-medium text-accent transition-colors hover:bg-accent/25 disabled:opacity-50"
               >
                 {doneCount > 0 ? "Lanjut" : "Mulai baca"}
                 {nextTitle ? `: ${nextTitle}` : ""}

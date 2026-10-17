@@ -19,6 +19,12 @@ html {
   color-scheme: dark;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
 body {
   background: var(--color-bg);
   color: var(--color-ink);
@@ -160,10 +166,6 @@ body {
   color: var(--color-ink);
   font-weight: 600;
   white-space: nowrap;
-}
-
-.prose-wt tbody tr:nth-child(even) td {
-  background: color-mix(in oklab, var(--color-surface) 65%, transparent);
 }
 
 .prose-wt code,

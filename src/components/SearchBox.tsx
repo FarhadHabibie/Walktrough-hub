@@ -110,7 +110,7 @@ export default function SearchBox({ autoFocus = false }: { autoFocus?: boolean }
 
   return (
     <div ref={boxRef} className="relative w-full max-w-2xl">
-      <div className="flex items-center gap-3 rounded-2xl border border-edge bg-surface px-4 py-3.5 shadow-lg shadow-black/20 transition focus-within:border-accent/70 focus-within:ring-2 focus-within:ring-accent/20">
+      <div className="flex items-center gap-3 rounded-lg border border-edge bg-surface px-4 py-3 transition-colors focus-within:border-accent/70 focus-within:ring-2 focus-within:ring-accent/20">
         <SearchIcon className="size-5 shrink-0 text-muted" />
         <input
           value={q}
@@ -120,6 +120,7 @@ export default function SearchBox({ autoFocus = false }: { autoFocus?: boolean }
           autoFocus={autoFocus}
           type="text"
           role="combobox"
+          aria-label="Cari game"
           aria-expanded={open}
           aria-controls="wt-search-results"
           placeholder="Cari game… (contoh: elden ring, minecraft, terraria)"
@@ -134,7 +135,7 @@ export default function SearchBox({ autoFocus = false }: { autoFocus?: boolean }
         <div
           id="wt-search-results"
           role="listbox"
-          className="absolute z-30 mt-2 w-full overflow-hidden rounded-2xl border border-edge bg-surface shadow-2xl shadow-black/50"
+          className="absolute z-30 mt-2 w-full overflow-hidden rounded-lg border border-edge bg-surface shadow-md"
         >
           {results.length === 0 && !loading ? (
             <div className="px-3.5 py-3 text-sm text-muted">
@@ -149,7 +150,7 @@ export default function SearchBox({ autoFocus = false }: { autoFocus?: boolean }
                 aria-selected={i === active}
                 onClick={() => go(r.slug)}
                 onMouseEnter={() => setActive(i)}
-                className={`flex w-full items-center gap-3 px-3.5 py-2.5 text-left transition ${
+                className={`flex w-full items-center gap-3 px-3.5 py-2.5 text-left transition-colors ${
                   i === active ? "bg-surface2" : ""
                 }`}
               >
@@ -173,7 +174,7 @@ export default function SearchBox({ autoFocus = false }: { autoFocus?: boolean }
                     {[r.year, r.platform].filter(Boolean).join(" · ")}
                   </span>
                 </span>
-                <span className="shrink-0 rounded-full border border-edge bg-surface2 px-2.5 py-0.5 font-mono text-[11px] text-muted">
+                <span className="shrink-0 rounded-md border border-edge bg-surface2 px-2 py-0.5 font-mono text-[11px] text-muted">
                   {r.section_count} bagian
                 </span>
               </button>
@@ -183,10 +184,13 @@ export default function SearchBox({ autoFocus = false }: { autoFocus?: boolean }
           <div className="border-t border-edge">
             <button
               onClick={openFromWiki}
-              className="flex w-full items-center gap-3 px-3.5 py-3 text-left transition hover:bg-surface2"
+              className="flex w-full items-center gap-3 px-3.5 py-3 text-left transition-colors hover:bg-surface2"
             >
-              <span aria-hidden className="grid h-12 w-9 shrink-0 place-items-center rounded-md border border-dashed border-accent/40 bg-accent/10 text-base">
-                ✨
+              <span
+                aria-hidden
+                className="grid h-12 w-9 shrink-0 place-items-center rounded-md border border-edge bg-surface2 text-lg leading-none text-muted"
+              >
+                +
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-medium text-accent">

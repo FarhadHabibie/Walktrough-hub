@@ -51,7 +51,7 @@ function NavList({
               href={`#${s.anchor}`}
               onClick={onNavigate}
               aria-current={isActive ? "true" : undefined}
-              className={`flex items-start gap-2.5 rounded-xl px-2.5 py-2 text-[13px] leading-snug transition ${
+              className={`flex items-start gap-2.5 rounded-lg px-2.5 py-2 text-[13px] leading-snug transition-colors ${
                 isActive
                   ? "bg-accent/10 text-ink"
                   : done
@@ -116,7 +116,7 @@ export default function SidebarNav({ sections }: { sections: SectionMeta[] }) {
       </aside>
 
       <details
-        className="mb-6 rounded-2xl border border-edge bg-surface lg:hidden"
+        className="mb-6 rounded-xl border border-edge bg-surface lg:hidden"
         open={mobileOpen}
         onToggle={(e) => setMobileOpen((e.target as HTMLDetailsElement).open)}
       >

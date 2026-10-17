@@ -29,10 +29,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">
-        <header className="sticky top-0 z-40 border-b border-edge/70 bg-bg/80 backdrop-blur-md">
+        <header className="sticky top-0 z-40 border-b border-edge bg-bg">
           <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
             <Link href="/" className="group flex items-center gap-2.5">
-              <span className="grid size-8 place-items-center rounded-lg bg-gradient-to-br from-accent to-accent2 font-mono text-sm font-bold text-bg">
+              <span className="grid size-8 place-items-center rounded-lg bg-accent font-mono text-sm font-bold text-bg">
                 W
               </span>
               <span className="text-[15px] font-semibold tracking-tight">
