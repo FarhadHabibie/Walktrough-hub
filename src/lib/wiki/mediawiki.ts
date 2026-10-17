@@ -20,11 +20,15 @@ export type WikiClient = {
   fetchPage: (page: string) => Promise<ParsedPage>;
   fetchCover: (page: string) => Promise<string | null>;
   pageExists: (page: string) => Promise<boolean>;
+  /** Canonical page title after following redirects (null when missing). */
+  resolvedTitle: (page: string) => Promise<string | null>;
   /** Which of the given page titles exist (resolves redirects), in one API call. */
   existingPages: (titles: string[]) => Promise<Set<string>>;
   /** Wikitext size (bytes) for existing pages, keyed by lowercase title. */
   pageSizes: (titles: string[]) => Promise<Map<string, number>>;
   searchTitles: (term: string, limit?: number) => Promise<string[]>;
+  /** Title of the wiki's main page (usually the game's front page), if any. */
+  mainPage: () => Promise<string | null>;
 };
 
 function absolutize(raw: string | null | undefined, origin: string): string | null {
@@ -150,6 +154,20 @@ export function makeWikiClient(apiUrl: string): WikiClient {
       }
     },
 
+    async resolvedTitle(page: string): Promise<string | null> {
+      try {
+        const data = (await call({
+          action: "query",
+          titles: page,
+          redirects: "1",
+        })) as { query?: { pages?: Array<{ title?: string; missing?: boolean }> } };
+        const p = data.query?.pages?.[0];
+        return p && !p.missing && p.title ? p.title : null;
+      } catch {
+        return null;
+      }
+    },
+
     async existingPages(titles: string[]): Promise<Set<string>> {
       const wanted = titles.filter(Boolean);
       if (wanted.length === 0) return new Set();
@@ -217,6 +235,19 @@ export function makeWikiClient(apiUrl: string): WikiClient {
         return (data.query?.search ?? []).map((x) => x.title);
       } catch {
         return [];
+      }
+    },
+
+    async mainPage(): Promise<string | null> {
+      try {
+        const data = (await call({
+          action: "query",
+          meta: "siteinfo",
+          siprop: "general",
+        })) as { query?: { general?: { mainpage?: string } } };
+        return data.query?.general?.mainpage ?? null;
+      } catch {
+        return null;
       }
     },
   };

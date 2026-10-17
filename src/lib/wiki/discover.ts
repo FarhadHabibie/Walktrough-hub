@@ -187,6 +187,12 @@ export type WalkthroughTarget = {
   matchedTitle: string;
   /** "walkthrough" = a dedicated guide page; "article" = game overview fallback. */
   kind: "walkthrough" | "article";
+  /** Heading levels to split sections at (default [1, 2]). Some sources put
+   *  every walkthrough step in an <h3>. */
+  splitLevels?: number[];
+  /** Page to link as the source (defaults to pages[0]) — e.g. the game's
+   *  guide root for multi-page guides. */
+  sourcePage?: string;
 };
 
 /** Classic page names that usually hold a full game walkthrough, in priority
@@ -315,4 +321,176 @@ function pickMissionHub(hits: string[], gameTitle: string): string | null {
     if (shared) return h;
   }
   return null;
+}
+
+/* ------------------------------------------------------------------------- *
+ * Secondary walkthrough sources
+ *
+ * When the Fandom / wiki.gg discovery above only turns up a general article
+ * (or nothing), we look at two sources that are built around walkthroughs:
+ *
+ *  1. Fextralife wikis (<game>.wiki.fextralife.com) — every one of them
+ *     carries a standardized "Game Progress Route" page: an ordered,
+ *     area-by-area walkthrough. Their rendered pages split at <h3>.
+ *  2. StrategyWiki (strategywiki.org) — one wiki for all games; complete
+ *     guides follow the "<Game>/Table of Contents" + per-section subpage
+ *     convention, so the TOC doubles as the reading order.
+ * ------------------------------------------------------------------------- */
+
+/** Known Fextralife subdomains for titles whose domain name isn't obvious. */
+const FEXTRALIFE_CURATED: Array<[RegExp, string]> = [
+  [/dark\s*souls\s*(iii|3)\b/i, "darksouls3"],
+  [/dark\s*souls\s*(ii|2)\b/i, "darksouls2"],
+  [/dark\s*souls(?!\s*(iii|3|ii|2)\b)/i, "darksouls"],
+  [/demon'?s?\s*souls/i, "demonssouls"],
+  [/elden\s*ring/i, "eldenring"],
+  [/bloodborne/i, "bloodborne"],
+  [/sekiro/i, "sekiroshadowsdietwice"],
+  [/nioh\s*2/i, "nioh2"],
+  [/nioh(?!\s*2\b)/i, "nioh"],
+  [/baldur'?s?\s*gate\s*(iii|3)/i, "baldursgate3"],
+  [/monster\s*hunter\s*world/i, "monsterhunterworld"],
+];
+
+function fextralifeSubdomains(title: string): string[] {
+  const out: string[] = [];
+  for (const [re, sub] of FEXTRALIFE_CURATED) {
+    if (re.test(title) && !out.includes(sub)) out.push(sub);
+  }
+  const compact = normalizeForMatch(title)
+    .split(" ")
+    .filter((w) => w.length > 0 && !STOP_WORDS.has(w))
+    .join("");
+  if (compact.length >= 3 && !out.includes(compact)) out.push(compact);
+  return out.slice(0, 4);
+}
+
+/** Best-scoring search hit for a title, ignoring file/image redirects. */
+function bestHit(hits: string[], title: string, minScore = 45): string | null {
+  const wanted = normalizeForMatch(title);
+  let best = 0;
+  let matched: string | null = null;
+  for (let i = 0; i < hits.length; i++) {
+    const t = hits[i];
+    if (/\.(jpe?g|png|gif|webp|mp4|webm)$/i.test(t) || t.includes("/")) {
+      continue;
+    }
+    const norm = normalizeForMatch(t);
+    let s = Math.max(0, 12 - i * 2);
+    if (norm === wanted) s += 100;
+    else if (norm.startsWith(wanted) || wanted.startsWith(norm)) s += 45;
+    else if (norm.includes(wanted) || wanted.includes(norm)) s += 25;
+    if (s > best) {
+      best = s;
+      matched = t;
+    }
+  }
+  return best >= minScore ? matched : null;
+}
+
+export type AltWalkthrough = { hit: WikiHit; target: WalkthroughTarget };
+
+/** Fextralife: use the standardized "Game Progress Route" page, if the
+ *  game has a wiki there. Returns null when no candidate host qualifies. */
+export async function findFextralifeTarget(
+  title: string,
+): Promise<AltWalkthrough | null> {
+  for (const sub of fextralifeSubdomains(title)) {
+    try {
+      const api = `https://${sub}.wiki.fextralife.com/api.php`;
+      const client = makeWikiClient(api);
+      const exists = await client.existingPages(["Game Progress Route"]);
+      if (!exists.has("Game Progress Route")) continue;
+
+      const page = bestHit(await client.searchTitles(title, 6), title);
+      return {
+        hit: {
+          api,
+          origin: client.origin,
+          wikiName: new URL(api).hostname,
+          score: 0,
+          matchedTitle: page ?? title,
+        },
+        target: {
+          pages: ["Game Progress Route"],
+          matchedTitle: "Game Progress Route",
+          kind: "walkthrough",
+          splitLevels: [1, 2, 3],
+        },
+      };
+    } catch {
+      // try the next candidate
+    }
+  }
+  return null;
+}
+
+const STRATEGYWIKI_API = "https://strategywiki.org/w/api.php";
+const STRATEGYWIKI_MIN_PAGES = 10;
+const STRATEGYWIKI_MAX_PAGES = 40;
+
+/** Ordered "<Game>/..." links inside a StrategyWiki Table of Contents page. */
+function extractSubpageLinks(html: string, root: string): string[] {
+  const prefix = `${root}/`;
+  const out: string[] = [];
+  const re = /href="\/wiki\/([^"#?]+)"/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html))) {
+    let t: string;
+    try {
+      t = decodeURIComponent(m[1]);
+    } catch {
+      t = m[1];
+    }
+    t = t.replace(/_/g, " ");
+    if (!t.startsWith(prefix)) continue;
+    if (t === `${root}/Table of Contents`) continue;
+    if (!out.includes(t)) out.push(t);
+  }
+  return out;
+}
+
+/** StrategyWiki: use "<Game>/Table of Contents" + its subpages as a
+ *  multi-page walkthrough. Only when the guide is substantial enough. */
+export async function findStrategyWikiTarget(
+  title: string,
+): Promise<AltWalkthrough | null> {
+  try {
+    const client = makeWikiClient(STRATEGYWIKI_API);
+    const guess = bestHit(await client.searchTitles(title, 8), title, 50);
+    if (!guess) return null;
+
+    // Search likes to rank redirect variants ("Chrono trigger") first, and
+    // subpage paths are case-sensitive — so resolve to the canonical title.
+    const root = (await client.resolvedTitle(guess)) ?? guess;
+
+    const tocTitle = `${root}/Table of Contents`;
+    const exists = await client.existingPages([tocTitle]);
+    if (!exists.has(tocTitle)) return null;
+
+    const toc = await client.fetchPage(tocTitle);
+    const pages = extractSubpageLinks(toc.html, root).slice(
+      0,
+      STRATEGYWIKI_MAX_PAGES,
+    );
+    if (pages.length < STRATEGYWIKI_MIN_PAGES) return null;
+
+    return {
+      hit: {
+        api: STRATEGYWIKI_API,
+        origin: client.origin,
+        wikiName: new URL(STRATEGYWIKI_API).hostname,
+        score: 0,
+        matchedTitle: root,
+      },
+      target: {
+        pages,
+        matchedTitle: root,
+        kind: "walkthrough",
+        sourcePage: root,
+      },
+    };
+  } catch {
+    return null;
+  }
 }

@@ -51,11 +51,11 @@ Kalau `--pages` tidak diisi, script akan coba auto-discover halaman walkthrough 
 Di kolom pencarian, ketik nama game yang belum ada di katalog → muncul baris
 **“Ambil dari wiki publik”**. Pilih itu (atau tekan Enter), dan app akan:
 
-1. Mencari wiki yang paling cocok dari beberapa kandidat (peta kurasi untuk game populer + tebakan domain `namagame.fandom.com` / `namagame.wiki.gg`), lalu memverifikasi ke API wiki aslinya.
-2. Mengambil halaman walkthrough khusus kalau ada (`Walkthrough`, `Guide`, dll), atau artikel game-nya kalau wiki tidak punya halaman walkthrough.
-3. Membersihkan HTML-nya lewat `htmlclean` dan menyimpannya ke SQLite — jadi kunjungan berikutnya instan, dan game itu otomatis masuk katalog + pencarian.
+1. Mencari wiki utama (peta kurasi untuk game populer + tebakan domain `namagame.fandom.com` / `namagame.wiki.gg`), memverifikasi ke API wiki aslinya, lalu mengambil halaman walkthrough khususnya (`Walkthrough`, `Guide`, hub misi) — atau artikel game-nya kalau memang tidak ada.
+2. Kalau hasilnya cuma artikel tipis (atau wiki-nya tidak ketemu), app lanjut ke sumber yang isinya memang walkthrough: **Fextralife** (halaman standar *"Game Progress Route"* — walkthrough terurut per area, mis. Dark Souls III & Bloodborne) lalu **StrategyWiki** (panduan multi-halaman lewat *"Table of Contents"* — semua chapter dimuat sekaligus sebagai grup, mis. Chrono Trigger & Zelda: A Link to the Past).
+3. Hasil yang paling kuat (paling lengkap) yang dipakai, dibersihkan lewat `htmlclean`, dan disimpan ke SQLite — jadi kunjungan berikutnya instan, dan game itu otomatis masuk katalog + pencarian.
 
-Kunjungan pertama butuh ±3–6 detik (scrape sekali), habis itu selalu cepat. Kalau wiki tidak ditemukan, game tidak dimasukkan dan dicoba ulang paling cepat 10 menit kemudian.
+Kunjungan pertama butuh ±3–6 detik (bisa ~15 detik untuk panduan multi-halaman besar); habis itu selalu cepat. Kalau tidak ada sumber yang cocok, game tidak dimasukkan dan dicoba ulang paling cepat 10 menit kemudian.
 
 ## Arsitektur
 
@@ -84,9 +84,9 @@ Teknologi: **Next.js 16** (App Router, Turbopack) · **Tailwind CSS 4** · **nod
 ### Bagaimana konten diproses
 
 1. Script fetch halaman wiki via `action=parse` (MediaWiki API).
-2. `htmlclean.ts` membuang script/navbox/infobox/referensi, men-sanitasi atribut (allowlist), meng-absolutize semua link/gambar, lalu memotong konten menjadi **section** per heading `h1/h2`.
+2. `htmlclean.ts` membuang script/navbox/infobox/referensi, men-sanitasi atribut (allowlist), meng-absolutize semua link/gambar, lalu memotong konten menjadi **section** per heading (h1–h2, atau sampai h3 untuk sumber yang memakai sub-heading sebagai bab — seperti "Game Progress Route" Fextralife).
 3. Section disimpan ke SQLite; HTML-nya dirender ulang di app dengan styling sendiri (`.prose-wt`).
 
 ## Lisensi konten
 
-Konten walkthrough berasal dari wiki publik (Fandom, wiki.gg, wiki komunitas) dengan lisensi **CC BY-SA** — hak cipta milik masing-masing kontributor wiki. Aplikasi ini hanya me-render ulang konten tersebut dengan tampilan yang lebih nyaman dan selalu mencantumkan sumber + link ke wiki aslinya.
+Konten walkthrough berasal dari wiki publik (Fandom, wiki.gg, StrategyWiki, Fextralife, dan wiki komunitas lain) — lisensi mengikuti masing-masing wiki (Fandom/wiki.gg umumnya **CC BY-SA**). Hak cipta milik masing-masing kontributor wiki. Aplikasi ini hanya me-render ulang konten tersebut dengan tampilan yang lebih nyaman dan selalu mencantumkan sumber + link ke halaman aslinya.
