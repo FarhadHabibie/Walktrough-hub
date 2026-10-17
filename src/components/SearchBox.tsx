@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { navigate } from "@/lib/router";
 import { slugify } from "@/lib/slug";
+import { searchGames } from "@/lib/store";
 import type { Game } from "@/lib/types";
 
 type Result = Pick<
@@ -35,7 +36,6 @@ export default function SearchBox({ autoFocus = false }: { autoFocus?: boolean }
   const [loading, setLoading] = useState(false);
   const [active, setActive] = useState(-1);
   const boxRef = useRef<HTMLDivElement>(null);
-  const router = useRouter();
 
   useEffect(() => {
     const term = q.trim();
@@ -43,10 +43,17 @@ export default function SearchBox({ autoFocus = false }: { autoFocus?: boolean }
     const t = setTimeout(async () => {
       setLoading(true);
       try {
-        const res = await fetch(`/api/search?q=${encodeURIComponent(term)}`);
-        if (!res.ok) throw new Error("search failed");
-        const data = (await res.json()) as { results: Result[] };
-        setResults(data.results ?? []);
+        const found = await searchGames(term, 10);
+        setResults(
+          found.map((g) => ({
+            slug: g.slug,
+            title: g.title,
+            platform: g.platform,
+            year: g.year,
+            cover_url: g.cover_url,
+            section_count: g.section_count,
+          })),
+        );
       } catch {
         setResults([]);
       } finally {
@@ -72,7 +79,7 @@ export default function SearchBox({ autoFocus = false }: { autoFocus?: boolean }
     setOpen(false);
     setQ("");
     setResults([]);
-    router.push(`/games/${slug}`);
+    navigate(`/games/${slug}`);
   };
 
   /** Fetch a game straight from public wikis on first open. */
@@ -83,7 +90,7 @@ export default function SearchBox({ autoFocus = false }: { autoFocus?: boolean }
     setOpen(false);
     setQ("");
     setResults([]);
-    router.push(`/games/${slug}?title=${encodeURIComponent(term)}`);
+    navigate(`/games/${slug}?title=${encodeURIComponent(term)}`);
   };
 
   const hasQuery = q.trim().length >= 2;
@@ -157,8 +164,9 @@ export default function SearchBox({ autoFocus = false }: { autoFocus?: boolean }
                 {r.cover_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={`/api/cover/${r.slug}`}
+                    src={r.cover_url}
                     alt=""
+                    referrerPolicy="no-referrer"
                     className="h-12 w-9 shrink-0 rounded-md border border-edge object-cover"
                   />
                 ) : (
@@ -197,7 +205,7 @@ export default function SearchBox({ autoFocus = false }: { autoFocus?: boolean }
                   Ambil &ldquo;{q.trim()}&rdquo; dari wiki publik
                 </span>
                 <span className="block text-xs text-muted">
-                  Walkthrough di-scrape otomatis saat halaman dibuka — sekali
+                  Walkthrough diambil otomatis saat halaman dibuka — sekali
                   saja, lalu tersimpan.
                 </span>
               </span>

@@ -2,11 +2,11 @@
  * Cleans MediaWiki-parsed HTML into safe, self-contained section HTML
  * and splits it into sections at heading boundaries.
  *
- * Everything rendered by the web app goes through this module first:
+ * Everything rendered by the app goes through this module first:
  * scripts/styles/navboxes/infoboxes are dropped, all attributes are
  * stripped except a tiny allowlist, and relative URLs are absolutized.
+ * Runs in the browser using the native DOMParser.
  */
-import { parse, HTMLElement, NodeType, type Node } from "node-html-parser";
 
 const DROP_SELECTORS = [
   ".mw-editsection",
@@ -180,32 +180,20 @@ export type CleanOptions = {
   introMinChars?: number;
 };
 
-function isElement(node: Node): node is HTMLElement {
-  return node.nodeType === NodeType.ELEMENT_NODE;
+function stripAttrs(el: Element, keep: string[]): void {
+  for (const attr of [...el.attributes]) {
+    if (!keep.includes(attr.name)) el.removeAttribute(attr.name);
+  }
 }
 
-function unwrap(el: HTMLElement): void {
+function unwrap(el: Element): void {
   const parent = el.parentNode;
   if (!parent) {
     el.remove();
     return;
   }
-  const children = [...el.childNodes];
-  const idx = parent.childNodes.indexOf(el);
-  if (idx === -1) {
-    el.remove();
-    return;
-  }
-  parent.childNodes.splice(idx, 1, ...children);
-  for (const child of children) child.parentNode = parent;
-  el.parentNode = null;
-  el.childNodes = [];
-}
-
-function stripAttrs(el: HTMLElement, keep: string[]): void {
-  for (const key of Object.keys(el.attributes)) {
-    if (!keep.includes(key)) el.removeAttribute(key);
-  }
+  while (el.firstChild) parent.insertBefore(el.firstChild, el);
+  el.remove();
 }
 
 function absolutize(
@@ -230,10 +218,10 @@ function absolutize(
   }
 }
 
-function hasJunkAncestor(el: HTMLElement, container: HTMLElement): boolean {
-  let p = el.parentNode;
+function hasJunkAncestor(el: Element, container: Element): boolean {
+  let p: Node | null = el.parentNode;
   while (p && p !== container) {
-    if (isElement(p)) {
+    if (p instanceof Element) {
       const cls = p.getAttribute("class") ?? "";
       if (/(^|\s|-)(icon|sprite|flagicon|mw-headline-anchor)(\s|$|-)/i.test(cls)) {
         return true;
@@ -244,7 +232,13 @@ function hasJunkAncestor(el: HTMLElement, container: HTMLElement): boolean {
   return false;
 }
 
-function fixLink(el: HTMLElement, ctx: CleanContext): void {
+type CleanContext = {
+  origin: string;
+  pageUrl: string;
+  container: Element;
+};
+
+function fixLink(el: Element, ctx: CleanContext): void {
   stripAttrs(el, ALLOWED_ATTRS.a);
   const href = absolutize(el.getAttribute("href"), ctx.origin, ctx.pageUrl);
   if (!href) {
@@ -256,7 +250,7 @@ function fixLink(el: HTMLElement, ctx: CleanContext): void {
   el.setAttribute("rel", "noopener nofollow");
 }
 
-function fixImg(el: HTMLElement, ctx: CleanContext): void {
+function fixImg(el: Element, ctx: CleanContext): void {
   if (hasJunkAncestor(el, ctx.container)) {
     el.remove();
     return;
@@ -275,19 +269,13 @@ function fixImg(el: HTMLElement, ctx: CleanContext): void {
   el.setAttribute("decoding", "async");
 }
 
-type CleanContext = {
-  origin: string;
-  pageUrl: string;
-  container: HTMLElement;
-};
-
-function processElement(el: HTMLElement, ctx: CleanContext): void {
+function processElement(el: Element, ctx: CleanContext): void {
   const tag = el.tagName.toLowerCase();
 
   // children first, so ancestor decisions don't hide processed nodes
   for (const child of [...el.childNodes]) {
-    if (isElement(child)) processElement(child, ctx);
-    else if (child.nodeType === NodeType.COMMENT_NODE) child.remove();
+    if (child instanceof Element) processElement(child, ctx);
+    else if (child.nodeType === Node.COMMENT_NODE) child.remove();
   }
 
   if (DROP_TAGS.has(tag)) {
@@ -340,14 +328,12 @@ function slugify(input: string): string {
 }
 
 export function cleanAndSplit(rawHtml: string, opts: CleanOptions): CleanSection[] {
-  const root = parse(rawHtml);
-  const container =
-    root.querySelector(".mw-parser-output") ??
-    root.querySelector("main") ??
-    root;
+  const doc = new DOMParser().parseFromString(rawHtml, "text/html");
+  const container: Element =
+    doc.querySelector(".mw-parser-output") ?? doc.querySelector("main") ?? doc.body;
 
   for (const sel of DROP_SELECTORS) {
-    for (const node of container.querySelectorAll(sel)) node.remove();
+    for (const node of [...container.querySelectorAll(sel)]) node.remove();
   }
 
   const ctx: CleanContext = {
@@ -356,8 +342,8 @@ export function cleanAndSplit(rawHtml: string, opts: CleanOptions): CleanSection
     container,
   };
   for (const child of [...container.childNodes]) {
-    if (isElement(child)) processElement(child, ctx);
-    else if (child.nodeType === NodeType.COMMENT_NODE) child.remove();
+    if (child instanceof Element) processElement(child, ctx);
+    else if (child.nodeType === Node.COMMENT_NODE) child.remove();
   }
 
   const splitLevels = opts.splitLevels ?? [1, 2];
@@ -375,16 +361,16 @@ export function cleanAndSplit(rawHtml: string, opts: CleanOptions): CleanSection
   };
 
   for (const node of [...container.childNodes]) {
-    if (isElement(node)) {
+    if (node instanceof Element) {
       const tag = node.tagName.toLowerCase();
       const heading = /^h([1-6])$/.exec(tag);
       if (heading && splitLevels.includes(Number(heading[1]))) {
         flush();
-        const title = node.textContent.replace(/\s+/g, " ").trim();
+        const title = (node.textContent ?? "").replace(/\s+/g, " ").trim();
         current = { title, level: Number(heading[1]), parts: [] };
         continue;
       }
-      const html = node.toString();
+      const html = node.outerHTML;
       if (current) current.parts.push(html);
       else introParts.push(html);
     }
@@ -406,7 +392,15 @@ export function cleanAndSplit(rawHtml: string, opts: CleanOptions): CleanSection
     seenAnchors.set(base, count + 1);
     const anchor = count === 0 ? base : `${base}-${count + 1}`;
 
-    return { title, anchor, html, text, group: opts.group ?? null, level: draft.level, sourceUrl: opts.pageUrl };
+    return {
+      title,
+      anchor,
+      html,
+      text,
+      group: opts.group ?? null,
+      level: draft.level,
+      sourceUrl: opts.pageUrl,
+    };
   };
 
   const sections: CleanSection[] = [];

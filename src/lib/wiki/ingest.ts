@@ -13,7 +13,7 @@
  * negatively cached for a short while so a typo'd URL doesn't hammer wikis
  * on every reload.
  */
-import { getGameBySlug, rebuildFts, replaceSections, upsertGame } from "@/lib/db";
+import { getGameBySlug, replaceSections, upsertGame } from "@/lib/store";
 import type { Game } from "@/lib/types";
 import { makeWikiClient, type WikiClient } from "./mediawiki.ts";
 import {
@@ -179,7 +179,7 @@ async function runIngest(slug: string, titleHint?: string): Promise<Game | null>
     sourcePage.replace(/ /g, "_"),
   )}`;
 
-  const gameId = upsertGame({
+  await upsertGame({
     slug,
     title: displayTitle,
     platform: "",
@@ -192,8 +192,7 @@ async function runIngest(slug: string, titleHint?: string): Promise<Game | null>
     wikiName: wiki.wikiName,
     sourceUrl,
   });
-  replaceSections(gameId, sections);
-  rebuildFts();
+  await replaceSections(slug, sections);
 
   return getGameBySlug(slug);
 }
@@ -202,9 +201,9 @@ async function runIngest(slug: string, titleHint?: string): Promise<Game | null>
  * Return the game for `slug`, ingesting it from a public wiki on first
  * request. Resolves to null when no wiki/page could be found.
  */
-export function ensureGame(slug: string, titleHint?: string): Promise<Game | null> {
-  const existing = getGameBySlug(slug);
-  if (existing) return Promise.resolve(existing);
+export async function ensureGame(slug: string, titleHint?: string): Promise<Game | null> {
+  const existing = await getGameBySlug(slug);
+  if (existing) return existing;
 
   const until = negative.get(slug);
   if (until && Date.now() < until) return Promise.resolve(null);

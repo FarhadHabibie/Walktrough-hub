@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { SectionMeta } from "@/lib/types";
-import { useProgress } from "./progress";
+import { scrollToAnchor, useProgress } from "./progress";
 
 function CheckDot({ done, active }: { done: boolean; active: boolean }) {
   return (
@@ -47,11 +47,14 @@ function NavList({
                 {s.group_title}
               </div>
             )}
-            <a
-              href={`#${s.anchor}`}
-              onClick={onNavigate}
+            <button
+              type="button"
+              onClick={() => {
+                onNavigate?.();
+                window.requestAnimationFrame(() => scrollToAnchor(s.anchor));
+              }}
               aria-current={isActive ? "true" : undefined}
-              className={`flex items-start gap-2.5 rounded-lg px-2.5 py-2 text-[13px] leading-snug transition-colors ${
+              className={`flex w-full items-start gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] leading-snug transition-colors ${
                 isActive
                   ? "bg-accent/10 text-ink"
                   : done
@@ -68,7 +71,7 @@ function NavList({
                 </span>
                 {s.title}
               </span>
-            </a>
+            </button>
           </div>
         );
       })}

@@ -4,8 +4,7 @@
  * MediaWiki-based wikis.
  */
 
-const UA =
-  "WalkthroughHub/0.1 (personal project; contact: local dev) node-fetch";
+const UA = "WalkthroughHub/0.2 (personal walkthrough reader)";
 
 export type ParsedPage = {
   title: string;
@@ -50,6 +49,9 @@ export function makeWikiClient(apiUrl: string): WikiClient {
     const url = new URL(apiUrl);
     url.searchParams.set("format", "json");
     url.searchParams.set("formatversion", "2");
+    // Ask MediaWiki for CORS headers (anonymous wildcard) so this works
+    // straight from a browser page — the app has no server proxy anymore.
+    url.searchParams.set("origin", "*");
     for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
 
     const res = await fetch(url, {

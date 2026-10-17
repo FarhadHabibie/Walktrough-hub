@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import type { Game } from "@/lib/types";
 import { useProgress, scrollToAnchor } from "./progress";
 
@@ -16,13 +15,12 @@ export default function GameHeader({ game }: { game: Game }) {
       <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
         <div className="relative h-56 w-40 shrink-0 overflow-hidden rounded-xl border border-edge bg-surface2 sm:h-64 sm:w-48">
           {game.cover_url ? (
-            <Image
-              src={`/api/cover/${game.slug}`}
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={game.cover_url}
               alt={`Cover ${game.title}`}
-              fill
-              sizes="192px"
-              priority
-              className="object-cover"
+              referrerPolicy="no-referrer"
+              className="absolute inset-0 h-full w-full object-cover"
             />
           ) : (
             <div className="grid h-full w-full place-items-center bg-surface2">

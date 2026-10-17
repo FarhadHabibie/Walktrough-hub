@@ -1,22 +1,21 @@
-import Image from "next/image";
-import Link from "next/link";
 import DeleteGameButton from "@/components/DeleteGameButton";
 import type { Game } from "@/lib/types";
 
 export default function GameCard({ game }: { game: Game }) {
   return (
-    <Link
-      href={`/games/${game.slug}`}
+    <a
+      href={`#/games/${game.slug}`}
       className="group overflow-hidden rounded-xl border border-edge bg-surface transition-colors duration-150 hover:border-accent/60"
     >
       <div className="relative aspect-[4/5] w-full overflow-hidden bg-surface2">
         {game.cover_url ? (
-          <Image
-            src={`/api/cover/${game.slug}`}
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={game.cover_url}
             alt={`Cover ${game.title}`}
-            fill
-            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
-            className="object-cover"
+            loading="lazy"
+            referrerPolicy="no-referrer"
+            className="absolute inset-0 h-full w-full object-cover"
           />
         ) : (
           <div className="grid h-full w-full place-items-center bg-surface2">
@@ -40,6 +39,6 @@ export default function GameCard({ game }: { game: Game }) {
           </span>
         </div>
       </div>
-    </Link>
+    </a>
   );
 }

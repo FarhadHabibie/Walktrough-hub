@@ -1,5 +1,4 @@
 export type Game = {
-  id: number;
   slug: string;
   title: string;
   platform: string | null;
@@ -16,7 +15,7 @@ export type Game = {
 
 export type SectionRow = {
   id: number;
-  game_id: number;
+  game_slug: string;
   ord: number;
   group_title: string | null;
   level: number;
@@ -27,7 +26,7 @@ export type SectionRow = {
   source_url: string | null;
 };
 
-/** Lightweight shape passed to client components (no large HTML). */
+/** Lightweight shape passed to components (no large HTML). */
 export type SectionMeta = {
   id: number;
   ord: number;

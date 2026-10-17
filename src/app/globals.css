@@ -204,3 +204,14 @@ body {
 
 .prose-wt sup { font-size: 0.72em; }
 .prose-wt small { font-size: 0.85em; color: var(--color-muted); }
+
+/* ---------- Android APK: clear the system bars ---------- */
+/* env() resolves to 0 outside the WebView, so these rules are inert on the web. */
+
+.site-header {
+  padding-top: env(safe-area-inset-top);
+}
+
+body {
+  padding-bottom: env(safe-area-inset-bottom);
+}
