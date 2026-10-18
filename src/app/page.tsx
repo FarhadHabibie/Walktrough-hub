@@ -10,7 +10,10 @@ const HOME_TITLE = "WalkthroughHub — Walkthrough lengkap untuk setiap game";
 
 export default function App() {
   const route = useRoute();
-  const routeKey = route.view === "game" ? `game:${route.slug}` : "home";
+  const routeKey =
+    route.view === "game"
+      ? `game:${route.slug}${route.faq ? ":faq" : ""}`
+      : "home";
 
   useEffect(() => {
     // One-time import of the catalog shipped with the app (no-op afterwards).
@@ -25,10 +28,11 @@ export default function App() {
   if (route.view === "game") {
     return (
       <GameView
-        key={`${route.slug}:${route.titleHint ?? ""}:${route.platformHint ?? ""}`}
+        key={`${route.slug}:${route.titleHint ?? ""}:${route.platformHint ?? ""}:${route.faq ? "faq" : ""}`}
         slug={route.slug}
         titleHint={route.titleHint}
         platformHint={route.platformHint}
+        faq={route.faq}
       />
     );
   }

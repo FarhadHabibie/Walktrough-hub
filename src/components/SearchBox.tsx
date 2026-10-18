@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import PlatformChips from "@/components/PlatformChips";
+import { faqSource } from "@/lib/faq/client";
 import { navigate } from "@/lib/router";
 import { slugify } from "@/lib/slug";
 import { searchGames } from "@/lib/store";
@@ -37,6 +38,7 @@ export default function SearchBox({ autoFocus = false }: { autoFocus?: boolean }
   const [loading, setLoading] = useState(false);
   const [active, setActive] = useState(-1);
   const [platformStep, setPlatformStep] = useState(false);
+  const [faqKind, setFaqKind] = useState<"native" | "server" | null>(null);
   const boxRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -78,6 +80,18 @@ export default function SearchBox({ autoFocus = false }: { autoFocus?: boolean }
     return () => document.removeEventListener("mousedown", onDown);
   }, []);
 
+  // GameFAQs option is only offered where fetching is possible: inside the
+  // Android app (native plugin) or behind the desktop's local server.
+  useEffect(() => {
+    let alive = true;
+    void faqSource().then((kind) => {
+      if (alive) setFaqKind(kind);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   const go = (slug: string) => {
     setOpen(false);
     setPlatformStep(false);
@@ -97,6 +111,19 @@ export default function SearchBox({ autoFocus = false }: { autoFocus?: boolean }
     setResults([]);
     const params = new URLSearchParams({ title: term });
     if (platform) params.set("platform", platform);
+    navigate(`/games/${slug}?${params.toString()}`);
+  };
+
+  /** Fetch a walkthrough from GameFAQs (local server / native plugin). */
+  const openFromFaq = () => {
+    const term = q.trim();
+    const slug = slugify(term);
+    if (term.length < 2 || !slug) return;
+    setOpen(false);
+    setPlatformStep(false);
+    setQ("");
+    setResults([]);
+    const params = new URLSearchParams({ title: term, faq: "1" });
     navigate(`/games/${slug}?${params.toString()}`);
   };
 
@@ -200,29 +227,58 @@ export default function SearchBox({ autoFocus = false }: { autoFocus?: boolean }
 
           <div className="border-t border-edge">
             {!platformStep ? (
-              <button
-                onClick={() => setPlatformStep(true)}
-                className="flex w-full items-center gap-3 px-3.5 py-3 text-left transition-colors hover:bg-surface2"
-              >
-                <span
-                  aria-hidden
-                  className="grid h-12 w-9 shrink-0 place-items-center rounded-md border border-edge bg-surface2 font-pixel text-base leading-none text-muted"
+              <>
+                <button
+                  onClick={() => setPlatformStep(true)}
+                  className="flex w-full items-center gap-3 px-3.5 py-3 text-left transition-colors hover:bg-surface2"
                 >
-                  +
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium text-accent">
-                    Ambil &ldquo;{q.trim()}&rdquo; dari wiki publik
+                  <span
+                    aria-hidden
+                    className="grid h-12 w-9 shrink-0 place-items-center rounded-md border border-edge bg-surface2 font-pixel text-base leading-none text-muted"
+                  >
+                    +
                   </span>
-                  <span className="block text-xs text-muted">
-                    Pilih platform dulu (opsional) — walkthrough diambil
-                    otomatis sekali, lalu tersimpan.
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium text-accent">
+                      Ambil &ldquo;{q.trim()}&rdquo; dari wiki publik
+                    </span>
+                    <span className="block text-xs text-muted">
+                      Pilih platform dulu (opsional) — walkthrough diambil
+                      otomatis sekali, lalu tersimpan.
+                    </span>
                   </span>
-                </span>
-                <span aria-hidden className="shrink-0 text-muted">
-                  →
-                </span>
-              </button>
+                  <span aria-hidden className="shrink-0 text-muted">
+                    →
+                  </span>
+                </button>
+
+                {faqKind && (
+                  <button
+                    onClick={openFromFaq}
+                    className="flex w-full items-center gap-3 border-t border-edge px-3.5 py-3 text-left transition-colors hover:bg-surface2"
+                  >
+                    <span
+                      aria-hidden
+                      className="grid h-12 w-9 shrink-0 place-items-center rounded-md border border-edge bg-surface2 font-pixel text-base leading-none text-muted"
+                    >
+                      ≡
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-medium text-accent2">
+                        Ambil &ldquo;{q.trim()}&rdquo; dari GameFAQs
+                      </span>
+                      <span className="block text-xs text-muted">
+                        {faqKind === "native"
+                          ? "Di HP — FAQ walkthrough terbaik diambil otomatis di dalam app."
+                          : "Otomatis lewat server lokal — tanpa copy-paste."}
+                      </span>
+                    </span>
+                    <span aria-hidden className="shrink-0 text-muted">
+                      →
+                    </span>
+                  </button>
+                )}
+              </>
             ) : (
               <div className="px-3.5 py-3">
                 <div className="text-xs text-muted">

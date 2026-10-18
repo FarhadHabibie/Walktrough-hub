@@ -8,6 +8,7 @@ import { createServer } from "node:http";
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { fetchGamefaq, hasCurl } from "./gamefaqs.ts";
 
 const root = fileURLToPath(new URL("../out/", import.meta.url));
 
@@ -50,6 +51,41 @@ const server = createServer(async (req, res) => {
   try {
     const url = new URL(req.url ?? "/", "http://localhost");
     let pathname = decodeURIComponent(url.pathname);
+
+    // GameFAQs helper (desktop-only): the app has no CORS access to
+    // gamefaqs.gamespot.com, but this little server runs on the same machine.
+    if (pathname === "/api/gamefaqs/ping") {
+      const ok = await hasCurl();
+      res.writeHead(ok ? 200 : 503, {
+        "Content-Type": "application/json; charset=utf-8",
+        "Cache-Control": "no-store",
+      });
+      res.end(JSON.stringify({ ok }));
+      return;
+    }
+    if (pathname === "/api/gamefaqs/fetch") {
+      const q = url.searchParams.get("q")?.trim() ?? "";
+      const json = (status: number, payload: unknown) => {
+        res.writeHead(status, {
+          "Content-Type": "application/json; charset=utf-8",
+          "Cache-Control": "no-store",
+        });
+        res.end(JSON.stringify(payload));
+      };
+      if (q.length < 2) {
+        json(400, { error: "parameter q wajib (nama game)" });
+        return;
+      }
+      try {
+        json(200, await fetchGamefaq(q));
+      } catch (err) {
+        json(502, {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+      return;
+    }
+
     if (pathname.endsWith("/")) pathname += "index.html";
 
     const resolved = path.normalize(path.join(root, pathname));

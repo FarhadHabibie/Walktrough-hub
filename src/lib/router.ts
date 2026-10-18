@@ -11,7 +11,14 @@ import { isPlatformChoice } from "./platforms.ts";
 
 export type Route =
   | { view: "home" }
-  | { view: "game"; slug: string; titleHint?: string; platformHint?: string };
+  | {
+      view: "game";
+      slug: string;
+      titleHint?: string;
+      platformHint?: string;
+      /** First open should fetch a GameFAQs FAQ (→ `?faq=1` in the hash). */
+      faq?: boolean;
+    };
 
 export function parseHash(hash: string): Route {
   const path = hash.replace(/^#\/?/, "");
@@ -28,14 +35,16 @@ export function parseHash(hash: string): Route {
     if (!slug) return { view: "home" };
     let titleHint: string | undefined;
     let platformHint: string | undefined;
+    let faq = false;
     if (query) {
       const params = new URLSearchParams(query);
       const t = params.get("title")?.trim();
       if (t && t.length >= 2) titleHint = t;
       const p = params.get("platform")?.trim();
       if (p && isPlatformChoice(p)) platformHint = p;
+      faq = params.get("faq") === "1";
     }
-    return { view: "game", slug, titleHint, platformHint };
+    return { view: "game", slug, titleHint, platformHint, faq };
   }
   return { view: "home" };
 }

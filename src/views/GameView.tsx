@@ -7,6 +7,7 @@ import SectionHead from "@/components/SectionHead";
 import SidebarNav from "@/components/SidebarNav";
 import { ProgressProvider } from "@/components/progress";
 import { getGameBySlug, getSectionsForGame, subscribeStore } from "@/lib/store";
+import { ensureFaqGame } from "@/lib/faq/import";
 import { deriveTitleFromSlug, ensureGame } from "@/lib/wiki/ingest";
 import type { Game, SectionMeta, SectionRow } from "@/lib/types";
 
@@ -20,10 +21,13 @@ export default function GameView({
   slug,
   titleHint,
   platformHint,
+  faq = false,
 }: {
   slug: string;
   titleHint?: string;
   platformHint?: string;
+  /** First open should fetch a GameFAQs FAQ instead of a wiki entry. */
+  faq?: boolean;
 }) {
   const [state, setState] = useState<LoadState>({ status: "loading" });
 
@@ -37,7 +41,9 @@ export default function GameView({
         return;
       }
       if (alive) setState({ status: "ingesting" });
-      const game = await ensureGame(slug, titleHint, platformHint);
+      const game = faq
+        ? await ensureFaqGame(slug, titleHint)
+        : await ensureGame(slug, titleHint, platformHint);
       if (!alive) return;
       if (!game) {
         setState({ status: "missing" });
@@ -51,7 +57,7 @@ export default function GameView({
     return () => {
       alive = false;
     };
-  }, [slug, titleHint, platformHint]);
+  }, [slug, titleHint, platformHint, faq]);
 
   useEffect(() => {
     // Keep the header (platform picker, counts) in sync with the store —
@@ -102,7 +108,8 @@ export default function GameView({
       <div className="mx-auto grid max-w-2xl place-items-center px-4 py-28 text-center">
         <div className="w-full max-w-md rounded-xl border-2 border-edge bg-surface p-10">
           <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">
-            Menghubungi wiki publik<span className="blink text-accent">▮</span>
+            {faq ? "Mencari di GameFAQs" : "Menghubungi wiki publik"}
+            <span className="blink text-accent">▮</span>
           </p>
           <h1 className="mt-5 font-pixel text-lg leading-snug sm:text-xl">
             Mengambil walkthrough{" "}
@@ -111,7 +118,15 @@ export default function GameView({
             </span>
           </h1>
           <p className="mt-3 text-sm leading-relaxed text-muted">
-            Dari wiki publik — biasanya 5&ndash;15 detik dan hanya sekali.
+            {faq ? (
+              <>
+                Dari GameFAQs — biasanya 3&ndash;15 detik; FAQ paling lengkap
+                dipilih otomatis. Di HP, kalau perlu, halaman GameFAQs terbuka
+                sebentar di dalam app.
+              </>
+            ) : (
+              <>Dari wiki publik — biasanya 5&ndash;15 detik dan hanya sekali.</>
+            )}{" "}
             Setelah tersimpan, halaman ini terbuka instan (bahkan tanpa
             internet).
           </p>
@@ -131,10 +146,20 @@ export default function GameView({
             Game tidak ditemukan
           </h1>
           <p className="mt-3 text-sm text-muted">
-            Walkthrough yang kamu cari tidak ada di katalog dan tidak ditemukan
-            di wiki publik. Coba tulis nama game yang lebih lengkap di pencarian
-            (mis. &ldquo;Hollow Knight&rdquo;), lalu pilih{" "}
-            <span className="text-ink">Ambil dari wiki publik</span>.
+            {faq ? (
+              <>
+                Tidak ada FAQ yang bisa diambil dari GameFAQs untuk game ini.
+                Coba tulis nama game yang lebih lengkap di pencarian (mis.
+                &ldquo;Hollow Knight&rdquo;) atau pilih sumber lain.
+              </>
+            ) : (
+              <>
+                Walkthrough yang kamu cari tidak ada di katalog dan tidak
+                ditemukan di wiki publik. Coba tulis nama game yang lebih
+                lengkap di pencarian (mis. &ldquo;Hollow Knight&rdquo;), lalu
+                pilih <span className="text-ink">Ambil dari wiki publik</span>.
+              </>
+            )}
           </p>
           <a
             href="#/"
@@ -148,6 +173,7 @@ export default function GameView({
   }
 
   const { game, sections } = state;
+  const isFaqSource = game.wiki_name === "gamefaqs.gamespot.com";
   const meta: SectionMeta[] = sections.map((s) => ({
     id: s.id,
     ord: s.ord,
@@ -209,21 +235,44 @@ export default function GameView({
               <div className="mt-4 rounded-xl border border-edge bg-surface p-5 text-sm leading-relaxed text-muted">
                 <div className="font-medium text-ink">Sumber & lisensi</div>
                 <p className="mt-1.5">
-                  Walkthrough ini diambil dari{" "}
-                  {game.source_url ? (
-                    <a
-                      href={game.source_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-accent2 hover:underline"
-                    >
-                      {game.wiki_name ?? "wiki sumber"}
-                    </a>
+                  {isFaqSource ? (
+                    <>
+                      Walkthrough ini diambil dari{" "}
+                      {game.source_url ? (
+                        <a
+                          href={game.source_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-accent2 hover:underline"
+                        >
+                          GameFAQs
+                        </a>
+                      ) : (
+                        "GameFAQs"
+                      )}{" "}
+                      — FAQ karya penulis aslinya di sana, disimpan untuk
+                      bacaan pribadi. Buka halaman aslinya untuk versi terbaru,
+                      gambar, dan pembahasan komunitas.
+                    </>
                   ) : (
-                    (game.wiki_name ?? "wiki sumber")
-                  )}{" "}
-                  dan dilisensikan CC BY-SA. Kunjungi wiki aslinya untuk
-                  referensi, gambar, dan pembahasan komunitas.
+                    <>
+                      Walkthrough ini diambil dari{" "}
+                      {game.source_url ? (
+                        <a
+                          href={game.source_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-accent2 hover:underline"
+                        >
+                          {game.wiki_name ?? "wiki sumber"}
+                        </a>
+                      ) : (
+                        (game.wiki_name ?? "wiki sumber")
+                      )}{" "}
+                      dan dilisensikan CC BY-SA. Kunjungi wiki aslinya untuk
+                      referensi, gambar, dan pembahasan komunitas.
+                    </>
+                  )}
                 </p>
               </div>
             </article>

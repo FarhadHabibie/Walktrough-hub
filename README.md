@@ -2,13 +2,14 @@
 
 Aplikasi baca walkthrough game **lengkap dalam satu halaman**. Cari game → buka → semua bagian walkthrough langsung dimuat (nggak perlu klik-klik chapter), plus **progress tracking** yang tersimpan otomatis.
 
-Konten diambil dari wiki publik (Fandom, wiki.gg, Fextralife, StrategyWiki, dll — MediaWiki API) **langsung oleh aplikasi** (browser/WebView memanggil API-nya sendiri — semua sumber mengizinkan CORS), lalu disimpan **di perangkat** (IndexedDB) — tanpa server sama sekali:
+Konten diambil dari wiki publik (Fandom, wiki.gg, Fextralife, StrategyWiki, dll — MediaWiki API) **langsung oleh aplikasi** (browser/WebView memanggil API-nya sendiri — semua sumber mengizinkan CORS), lalu disimpan **di perangkat** (IndexedDB) — tanpa server:
 
 - ⚡ Cepat — kunjungan pertama ambil dari wiki, habis itu instan dari penyimpanan lokal
 - 📴 Offline — walkthrough yang sudah pernah diambil bisa dibaca tanpa internet
 - 🧭 Satu halaman utuh — sidebar navigasi + scrollspy per bagian
 - ✅ Progress baca per-bagian (tanpa akun)
-- 🔎 Pencarian instan di katalog lokal — plus **“Ambil dari wiki publik”** untuk game apa pun yang belum ada
+- 🔎 Pencarian instan di katalog lokal — plus **“Ambil dari wiki publik”** dan **“Ambil dari GameFAQs”** untuk game apa pun yang belum ada
+- 🔥 **GameFAQs** — FAQ/walkthrough klasik (termasuk panduan legendaris yang tidak ada di wiki) diambil otomatis: di HP lewat WebView dalam app, di desktop lewat API kecil di server lokal `npm start`. Detail di [bawah](#ambil-walkthrough-dari-gamefaqs)
 - 📚 **Sumber paling lengkap** — saat mengambil game baru, beberapa sumber (wiki utama + artikelnya, Fextralife, StrategyWiki) diambil dan dibandingkan otomatis; yang isinya paling lengkap yang dipakai, jadi walkthrough tipis/summary tidak menang kalau ada yang lebih utuh
 - 🎮 **Pilih platform** — saat menambah game maupun kapan saja di halaman game; kalau wiki sumber punya panduan khusus versi itu (mis. *Tetris DS*), yang diambil panduan versi tersebut
 - 🕹️ **Nuansa retro CRT** — judul & angka pakai font pixel (Silkscreen), sudut siku, hard shadow, progress bar tersegmentasi, dan scanline halus ala monitor CRT; teks isi tetap Geist supaya enak dibaca
@@ -37,7 +38,7 @@ Katalog punya nomor versi (`public/seed/version.json` + `version` di dalam catal
 ## Ambil game langsung dari web
 
 Di kolom pencarian, ketik nama game yang belum ada di katalog → muncul baris
-**“Ambil dari wiki publik”**. Pilih itu (atau tekan Enter) → pilih **platform yang kamu mainkan** (opsional; ada juga "Semua platform"), dan app akan:
+**“Ambil dari wiki publik”** (dan, kalau tersedia, baris **“Ambil dari GameFAQs”** — lihat [bagian khususnya](#ambil-walkthrough-dari-gamefaqs)). Pilih itu (atau tekan Enter) → pilih **platform yang kamu mainkan** (opsional; ada juga "Semua platform"), dan app akan:
 
 1. Mencari wiki utama (peta kurasi untuk game populer + tebakan domain `namagame.fandom.com` / `namagame.wiki.gg`), memverifikasi ke API wiki aslinya, lalu mengambil halaman walkthrough khususnya (`Walkthrough`, `Guide`, hub misi) — atau artikel game-nya kalau memang tidak ada.
 2. Mengumpulkan **semua** kandidat yang ada sekaligus (diparalel): artikel wiki primer itu sendiri (dipakai kalau halaman walkthrough di sana cuma daftar tipis, mis. halaman *Quests* 372 karakter), **Fextralife** (halaman standar *"Game Progress Route"* — walkthrough terurut per area, mis. Dark Souls III & Bloodborne), dan **StrategyWiki** (panduan multi-halaman lewat *"Table of Contents"* — semua chapter dimuat sekaligus sebagai grup, mis. Chrono Trigger & Stardew Valley; TOC yang isinya cuma kerangka/red link ditolak).
@@ -48,6 +49,30 @@ Platform yang kamu pilih disimpan sebagai label (tampil di kartu katalog + heade
 Kunjungan pertama butuh ±3–6 detik (bisa ~15 detik untuk panduan multi-halaman besar); habis itu selalu cepat — dan tetap bisa dibuka tanpa internet. Kalau tidak ada sumber yang cocok, game tidak dimasukkan dan dicoba ulang paling cepat 10 menit kemudian.
 
 Walkthrough yang sudah tersimpan bisa **dihapus** kapan saja: lewat ikon hapus di pojok cover kartu game di katalog, atau tombol **“Hapus dari katalog”** di halaman game-nya. Yang dibuang cuma salinan lokal (termasuk progres baca); gamenya bisa diambil ulang dari wiki publik kapan pun.
+
+## Ambil walkthrough dari GameFAQs
+
+Untuk game yang wiki-nya tipis — atau yang panduan klasiknya hanya ada di sana — pencarian juga
+menawarkan baris **“Ambil dari GameFAQs”**. FAQ/walkthrough paling lengkap diambil dan dipilih
+otomatis (judul yang mengandung *walkthrough* menang atas *guide*/*faq*, lalu ukuran K terbesar),
+lalu disimpan seperti sumber lain:
+
+- **Di HP (APK)** — pengambilan berjalan di dalam app lewat **WebView tersembunyi**: pencarian game →
+  halaman game → daftar FAQ → FAQ terbaik → semua blok teksnya digabung. Kalau GameFAQs meminta
+  verifikasi manusia (Cloudflare) atau ada langkah yang gagal, **browser kecil dalam app terbuka**
+  supaya kamu bisa mencari/memilih sendiri; buka halaman FAQ-nya dan tekan **SALIN** di toolbar,
+  teksnya langsung masuk ke app. Tidak ada server dan tidak ada data yang dikirim ke mana pun —
+  WebView memakai koneksi internetmu sendiri, sama seperti membuka situsnya di browser.
+- **Di desktop** — browser biasa tidak bisa menarik halaman GameFAQs lintas-origin (CORS), jadi
+  `npm start` (server lokal di port 3765) menyediakan API kecil `/api/gamefaqs/fetch` yang mengambil
+  FAQ di mesin yang sama — app mendeteksinya lewat `/api/gamefaqs/ping` dan menampilkan baris itu
+  hanya saat server lokalnya ada. (Kalau `out/` di-host statis tanpa server itu, barisnya hilang
+  sendiri.)
+
+Teks FAQ dirender sebagai monospace `pre-wrap` (gambar ASCII dan tabel tetap sejajar, baris panjang
+dibungkus), lalu dipotong per bab lewat deteksi heading (judul berkotak `====`, baris "Chapter N",
+heading KAPITAL). FAQ adalah **karya penulis masing-masing di GameFAQs** (bukan CC BY-SA) — footer
+halaman menandai sumbernya dan selalu menautkan FAQ aslinya.
 
 ## Install di Android (APK)
 
@@ -65,7 +90,7 @@ JAVA_HOME=/path/to/jdk21 ANDROID_HOME=/path/to/android-sdk ./gradlew assembleDeb
 
 Butuh **JDK 21** dan **Android SDK** (platform 36 + build-tools 36). Alternatif env var: isi `android/local.properties` dengan `sdk.dir=/path/ke/android-sdk`.
 
-> Semua data (katalog, walkthrough, progres) tersimpan di perangkat; APK ini tidak butuh server dan tidak mengirim apa pun ke mana pun — kecuali permintaan langsung ke API wiki publik saat mengambil game baru. Ikon & splash dibangun dari `assets/` via `npx @capacitor/assets generate --android`.
+> Semua data (katalog, walkthrough, progres) tersimpan di perangkat; APK ini tidak butuh server dan tidak mengirim apa pun ke mana pun — kecuali permintaan langsung ke API wiki publik atau halaman GameFAQs (via WebView dalam app) saat mengambil game baru. Ikon & splash dibangun dari `assets/` via `npx @capacitor/assets generate --android`.
 
 ## Arsitektur
 
@@ -79,13 +104,17 @@ src/
   lib/wiki/htmlclean.ts   # sanitasi HTML wiki → section yang aman & bersih (DOMParser)
   lib/wiki/discover.ts    # pencarian kandidat wiki + halaman walkthrough
   lib/wiki/ingest.ts      # ingest on-demand (dipakai halaman game)
+  lib/faq/client.ts       # sumber FAQ: server lokal (desktop) / plugin native (Android)
+  lib/faq/split.ts        # teks FAQ panjang → bagian + blok <pre class="faq-text">
+  lib/faq/import.ts       # ingest FAQ GameFAQs → penyimpanan lokal
   views/                  # HomeView (katalog) + GameView (walkthrough)
   app/                    # shell Next.js (static export, client-side routing)
   components/             # SearchBox, SidebarNav, dll
-scripts/serve.ts          # static server desktop (npm start)
+scripts/serve.ts          # static server desktop (npm start) + API /api/gamefaqs/*
+scripts/gamefaqs.ts       # pengambil FAQ GameFAQs sisi server (curl + cookie jar)
 public/seed/catalog.json  # katalog awal (diimpor otomatis saat pertama buka)
 public/seed/version.json  # stempel versi katalog → memicu refresh konten seed saat app di-update
-android/                  # project Capacitor Android
+android/                  # project Capacitor Android (+ plugin GamefaqsCapture & CaptureActivity)
 assets/                   # sumber ikon + splash APK
 capacitor.config.ts       # konfigurasi Android (webDir: out)
 ```
@@ -101,3 +130,8 @@ Teknologi: **Next.js 16** (static export, Turbopack) · **Tailwind CSS 4** · **
 ## Lisensi konten
 
 Konten walkthrough berasal dari wiki publik (Fandom, wiki.gg, StrategyWiki, Fextralife, dan wiki komunitas lain) — lisensi mengikuti masing-masing wiki (Fandom/wiki.gg umumnya **CC BY-SA**). Hak cipta milik masing-masing kontributor wiki. Aplikasi ini hanya me-render ulang konten tersebut dengan tampilan yang lebih nyaman dan selalu mencantumkan sumber + link ke halaman aslinya.
+
+Walkthrough yang ditarik dari **GameFAQs** berbeda: teksnya adalah FAQ karya penulis individual di
+sana (bukan CC BY-SA), di-host oleh GameFAQs. Aplikasi menyimpannya **hanya untuk bacaan pribadi di
+perangkatmu**, tidak menyebarluaskannya, dan selalu menautkan halaman FAQ aslinya — silakan buka
+halaman itu untuk versi terbaru dan menghargai penulisnya.
