@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import PlatformChips from "@/components/PlatformChips";
 import { navigate } from "@/lib/router";
 import { slugify } from "@/lib/slug";
 import { searchGames } from "@/lib/store";
@@ -35,6 +36,7 @@ export default function SearchBox({ autoFocus = false }: { autoFocus?: boolean }
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [active, setActive] = useState(-1);
+  const [platformStep, setPlatformStep] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -58,6 +60,7 @@ export default function SearchBox({ autoFocus = false }: { autoFocus?: boolean }
         setResults([]);
       } finally {
         setActive(-1);
+        setPlatformStep(false);
         setOpen(true);
         setLoading(false);
       }
@@ -77,20 +80,24 @@ export default function SearchBox({ autoFocus = false }: { autoFocus?: boolean }
 
   const go = (slug: string) => {
     setOpen(false);
+    setPlatformStep(false);
     setQ("");
     setResults([]);
     navigate(`/games/${slug}`);
   };
 
   /** Fetch a game straight from public wikis on first open. */
-  const openFromWiki = () => {
+  const openFromWiki = (platform: string | null) => {
     const term = q.trim();
     const slug = slugify(term);
     if (term.length < 2 || !slug) return;
     setOpen(false);
+    setPlatformStep(false);
     setQ("");
     setResults([]);
-    navigate(`/games/${slug}?title=${encodeURIComponent(term)}`);
+    const params = new URLSearchParams({ title: term });
+    if (platform) params.set("platform", platform);
+    navigate(`/games/${slug}?${params.toString()}`);
   };
 
   const hasQuery = q.trim().length >= 2;
@@ -111,7 +118,7 @@ export default function SearchBox({ autoFocus = false }: { autoFocus?: boolean }
       e.preventDefault();
       const pick = active >= 0 ? results[active] : results[0];
       if (pick) go(pick.slug);
-      else openFromWiki();
+      else setPlatformStep(true);
     }
   };
 
@@ -141,7 +148,7 @@ export default function SearchBox({ autoFocus = false }: { autoFocus?: boolean }
       {open && hasQuery && (
         <div
           id="wt-search-results"
-          role="listbox"
+          role={platformStep ? undefined : "listbox"}
           className="absolute z-30 mt-2 w-full overflow-hidden rounded-lg border border-edge bg-surface shadow-md"
         >
           {results.length === 0 && !loading ? (
@@ -190,29 +197,44 @@ export default function SearchBox({ autoFocus = false }: { autoFocus?: boolean }
           )}
 
           <div className="border-t border-edge">
-            <button
-              onClick={openFromWiki}
-              className="flex w-full items-center gap-3 px-3.5 py-3 text-left transition-colors hover:bg-surface2"
-            >
-              <span
-                aria-hidden
-                className="grid h-12 w-9 shrink-0 place-items-center rounded-md border border-edge bg-surface2 text-lg leading-none text-muted"
+            {!platformStep ? (
+              <button
+                onClick={() => setPlatformStep(true)}
+                className="flex w-full items-center gap-3 px-3.5 py-3 text-left transition-colors hover:bg-surface2"
               >
-                +
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-medium text-accent">
-                  Ambil &ldquo;{q.trim()}&rdquo; dari wiki publik
+                <span
+                  aria-hidden
+                  className="grid h-12 w-9 shrink-0 place-items-center rounded-md border border-edge bg-surface2 text-lg leading-none text-muted"
+                >
+                  +
                 </span>
-                <span className="block text-xs text-muted">
-                  Walkthrough diambil otomatis saat halaman dibuka — sekali
-                  saja, lalu tersimpan.
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium text-accent">
+                    Ambil &ldquo;{q.trim()}&rdquo; dari wiki publik
+                  </span>
+                  <span className="block text-xs text-muted">
+                    Pilih platform dulu (opsional) — walkthrough diambil
+                    otomatis sekali, lalu tersimpan.
+                  </span>
                 </span>
-              </span>
-              <span aria-hidden className="shrink-0 text-muted">
-                →
-              </span>
-            </button>
+                <span aria-hidden className="shrink-0 text-muted">
+                  →
+                </span>
+              </button>
+            ) : (
+              <div className="px-3.5 py-3">
+                <div className="text-xs text-muted">
+                  Platform yang kamu mainkan?{" "}
+                  <span className="text-muted/70">
+                    Kalau wiki punya panduan khusus versi itu, itu yang
+                    diambil.
+                  </span>
+                </div>
+                <div className="mt-3">
+                  <PlatformChips onPick={openFromWiki} />
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

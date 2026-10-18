@@ -171,6 +171,26 @@ export async function upsertGame(input: GameInput): Promise<string> {
   return input.slug;
 }
 
+/** Update just the platform label of a game (used by the platform picker). */
+export async function setGamePlatform(
+  slug: string,
+  platform: string | null,
+): Promise<void> {
+  const db = await openDb();
+  const tx = db.transaction("games", "readwrite");
+  const store = tx.objectStore("games");
+  const game = await reqToPromise(
+    store.get(slug) as IDBRequest<Game | undefined>,
+  );
+  if (game) {
+    game.platform = platform?.trim() ? platform.trim() : null;
+    game.updated_at = new Date().toISOString();
+    store.put(game);
+  }
+  await txDone(tx);
+  emit();
+}
+
 /** Replace all sections of a game and refresh its cached counts. */
 export async function replaceSections(
   slug: string,

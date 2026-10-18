@@ -25,9 +25,10 @@ export default function App() {
   if (route.view === "game") {
     return (
       <GameView
-        key={`${route.slug}:${route.titleHint ?? ""}`}
+        key={`${route.slug}:${route.titleHint ?? ""}:${route.platformHint ?? ""}`}
         slug={route.slug}
         titleHint={route.titleHint}
+        platformHint={route.platformHint}
       />
     );
   }

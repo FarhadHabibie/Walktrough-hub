@@ -7,10 +7,11 @@
  * collide with routes) — they scroll directly.
  */
 import { useSyncExternalStore } from "react";
+import { isPlatformChoice } from "./platforms.ts";
 
 export type Route =
   | { view: "home" }
-  | { view: "game"; slug: string; titleHint?: string };
+  | { view: "game"; slug: string; titleHint?: string; platformHint?: string };
 
 export function parseHash(hash: string): Route {
   const path = hash.replace(/^#\/?/, "");
@@ -26,11 +27,15 @@ export function parseHash(hash: string): Route {
     slug = slug.replace(/\/+$/, "");
     if (!slug) return { view: "home" };
     let titleHint: string | undefined;
+    let platformHint: string | undefined;
     if (query) {
-      const t = new URLSearchParams(query).get("title")?.trim();
+      const params = new URLSearchParams(query);
+      const t = params.get("title")?.trim();
       if (t && t.length >= 2) titleHint = t;
+      const p = params.get("platform")?.trim();
+      if (p && isPlatformChoice(p)) platformHint = p;
     }
-    return { view: "game", slug, titleHint };
+    return { view: "game", slug, titleHint, platformHint };
   }
   return { view: "home" };
 }

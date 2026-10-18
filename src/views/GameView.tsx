@@ -6,7 +6,7 @@ import GameHeader from "@/components/GameHeader";
 import SectionHead from "@/components/SectionHead";
 import SidebarNav from "@/components/SidebarNav";
 import { ProgressProvider } from "@/components/progress";
-import { getGameBySlug, getSectionsForGame } from "@/lib/store";
+import { getGameBySlug, getSectionsForGame, subscribeStore } from "@/lib/store";
 import { deriveTitleFromSlug, ensureGame } from "@/lib/wiki/ingest";
 import type { Game, SectionMeta, SectionRow } from "@/lib/types";
 
@@ -19,9 +19,11 @@ type LoadState =
 export default function GameView({
   slug,
   titleHint,
+  platformHint,
 }: {
   slug: string;
   titleHint?: string;
+  platformHint?: string;
 }) {
   const [state, setState] = useState<LoadState>({ status: "loading" });
 
@@ -35,7 +37,7 @@ export default function GameView({
         return;
       }
       if (alive) setState({ status: "ingesting" });
-      const game = await ensureGame(slug, titleHint);
+      const game = await ensureGame(slug, titleHint, platformHint);
       if (!alive) return;
       if (!game) {
         setState({ status: "missing" });
@@ -49,7 +51,25 @@ export default function GameView({
     return () => {
       alive = false;
     };
-  }, [slug, titleHint]);
+  }, [slug, titleHint, platformHint]);
+
+  useEffect(() => {
+    // Keep the header (platform picker, counts) in sync with the store —
+    // e.g. right after the platform is changed from the picker.
+    let alive = true;
+    const unsubscribe = subscribeStore(() => {
+      void getGameBySlug(slug).then((g) => {
+        if (!alive || !g) return;
+        setState((prev) =>
+          prev.status === "ready" ? { ...prev, game: g } : prev,
+        );
+      });
+    });
+    return () => {
+      alive = false;
+      unsubscribe();
+    };
+  }, [slug]);
 
   useEffect(() => {
     if (state.status === "ready") {

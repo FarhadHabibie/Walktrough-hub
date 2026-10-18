@@ -7,6 +7,7 @@
  * probe each one live and score how well its search results match.
  */
 import { makeWikiClient, type WikiClient } from "./mediawiki.ts";
+import { platformAliases, platformMatches } from "../platforms.ts";
 
 export type WikiHit = {
   api: string;
@@ -426,7 +427,10 @@ export async function findFextralifeTarget(
 }
 
 const STRATEGYWIKI_API = "https://strategywiki.org/w/api.php";
-const STRATEGYWIKI_MIN_PAGES = 10;
+/** A guide can be short and still solid (Tetris: 8 pages ≈ 47k chars), so
+ *  page count alone is a weak signal — the text-volume gates in ingest.ts
+ *  do the real quality check. */
+const STRATEGYWIKI_MIN_PAGES = 6;
 const STRATEGYWIKI_MAX_PAGES = 40;
 
 /** Ordered "<Game>/..." links inside a StrategyWiki Table of Contents page. */
@@ -450,10 +454,100 @@ function extractSubpageLinks(html: string, root: string): string[] {
   return out;
 }
 
+/** The "<Game>/Table of Contents" target for one root, when it is
+ *  substantial enough to be a real guide. */
+async function strategyTargetForRoot(
+  client: WikiClient,
+  root: string,
+): Promise<AltWalkthrough | null> {
+  const tocTitle = `${root}/Table of Contents`;
+  const exists = await client.existingPages([tocTitle]);
+  if (!exists.has(tocTitle)) return null;
+
+  const toc = await client.fetchPage(tocTitle);
+  const pages = extractSubpageLinks(toc.html, root).slice(
+    0,
+    STRATEGYWIKI_MAX_PAGES,
+  );
+  if (pages.length < STRATEGYWIKI_MIN_PAGES) return null;
+
+  return {
+    hit: {
+      api: STRATEGYWIKI_API,
+      origin: client.origin,
+      wikiName: new URL(STRATEGYWIKI_API).hostname,
+      score: 0,
+      matchedTitle: root,
+    },
+    target: {
+      pages,
+      matchedTitle: root,
+      kind: "walkthrough",
+      sourcePage: root,
+    },
+  };
+}
+
+/**
+ * A platform-specific edition root for the same game, when one exists:
+ * "Tetris" + DS → "Tetris DS"; "Doom" + GBA → "Doom (Game Boy Advance)".
+ * Only titles that keep the base name in front and carry a platform alias
+ * qualify, so lookalikes ("Tetris 2 (NES)") are never picked.
+ */
+async function findStrategyVersionRoot(
+  client: WikiClient,
+  root: string,
+  title: string,
+  platform: string,
+): Promise<string | null> {
+  const rootNorm = normalizeForMatch(root);
+  const terms = [...new Set([platform, ...platformAliases(platform)])].slice(
+    0,
+    3,
+  );
+  const seen = new Set<string>();
+
+  for (const term of terms) {
+    let hits: string[] = [];
+    try {
+      hits = await client.searchTitles(`${title} ${term}`, 8);
+    } catch {
+      continue;
+    }
+    for (const h of hits) {
+      if (seen.has(h) || h.includes("/") || h === root) continue;
+      seen.add(h);
+      const norm = normalizeForMatch(h);
+      // The edition keeps the base name as its opening words.
+      if (!norm.startsWith(`${rootNorm} `)) continue;
+
+      const rest = norm.slice(rootNorm.length).trim();
+      if (!platformMatches(rest, platform)) continue;
+
+      // "(NES)" style: the platform sits inside a parenthesized qualifier.
+      // "Tetris DS" style: the alias must open the remainder, so that
+      // sequels like "Tetris 2 (NES)" can never match.
+      const parenStyle = h.slice(root.length).trim().startsWith("(");
+      const prefixStyle = platformAliases(platform).some((a) => {
+        const aw = normalizeForMatch(a).split(" ").filter(Boolean);
+        const rw = rest.split(" ");
+        return aw.length > 0 && aw.every((w, i) => rw[i] === w);
+      });
+      if (!parenStyle && !prefixStyle) continue;
+
+      return h;
+    }
+  }
+  return null;
+}
+
 /** StrategyWiki: use "<Game>/Table of Contents" + its subpages as a
- *  multi-page walkthrough. Only when the guide is substantial enough. */
+ *  multi-page walkthrough. Only when the guide is substantial enough.
+ *  With a platform chosen, a separate edition guide ("Tetris DS") wins
+ *  over the base game root. */
 export async function findStrategyWikiTarget(
   title: string,
+  platform?: string | null,
 ): Promise<AltWalkthrough | null> {
   try {
     const client = makeWikiClient(STRATEGYWIKI_API);
@@ -464,32 +558,20 @@ export async function findStrategyWikiTarget(
     // subpage paths are case-sensitive — so resolve to the canonical title.
     const root = (await client.resolvedTitle(guess)) ?? guess;
 
-    const tocTitle = `${root}/Table of Contents`;
-    const exists = await client.existingPages([tocTitle]);
-    if (!exists.has(tocTitle)) return null;
+    if (platform) {
+      const versionRoot = await findStrategyVersionRoot(
+        client,
+        root,
+        title,
+        platform,
+      );
+      if (versionRoot) {
+        const edition = await strategyTargetForRoot(client, versionRoot);
+        if (edition) return edition;
+      }
+    }
 
-    const toc = await client.fetchPage(tocTitle);
-    const pages = extractSubpageLinks(toc.html, root).slice(
-      0,
-      STRATEGYWIKI_MAX_PAGES,
-    );
-    if (pages.length < STRATEGYWIKI_MIN_PAGES) return null;
-
-    return {
-      hit: {
-        api: STRATEGYWIKI_API,
-        origin: client.origin,
-        wikiName: new URL(STRATEGYWIKI_API).hostname,
-        score: 0,
-        matchedTitle: root,
-      },
-      target: {
-        pages,
-        matchedTitle: root,
-        kind: "walkthrough",
-        sourcePage: root,
-      },
-    };
+    return await strategyTargetForRoot(client, root);
   } catch {
     return null;
   }

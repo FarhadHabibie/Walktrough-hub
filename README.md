@@ -9,6 +9,7 @@ Konten diambil dari wiki publik (Fandom, wiki.gg, Fextralife, StrategyWiki, dll 
 - 🧭 Satu halaman utuh — sidebar navigasi + scrollspy per bagian
 - ✅ Progress baca per-bagian (tanpa akun)
 - 🔎 Pencarian instan di katalog lokal — plus **“Ambil dari wiki publik”** untuk game apa pun yang belum ada
+- 🎮 **Pilih platform** — saat menambah game maupun kapan saja di halaman game; kalau wiki sumber punya panduan khusus versi itu (mis. *Tetris DS*), yang diambil panduan versi tersebut
 - 📱 Jalan sebagai web di desktop **dan** sebagai **APK Android standalone** (Capacitor)
 
 ## Quickstart (desktop)
@@ -32,11 +33,13 @@ Repo ini menyertakan katalog lama (**16 game**, hasil scrape awal) di `public/se
 ## Ambil game langsung dari web
 
 Di kolom pencarian, ketik nama game yang belum ada di katalog → muncul baris
-**“Ambil dari wiki publik”**. Pilih itu (atau tekan Enter), dan app akan:
+**“Ambil dari wiki publik”**. Pilih itu (atau tekan Enter) → pilih **platform yang kamu mainkan** (opsional; ada juga "Semua platform"), dan app akan:
 
 1. Mencari wiki utama (peta kurasi untuk game populer + tebakan domain `namagame.fandom.com` / `namagame.wiki.gg`), memverifikasi ke API wiki aslinya, lalu mengambil halaman walkthrough khususnya (`Walkthrough`, `Guide`, hub misi) — atau artikel game-nya kalau memang tidak ada.
 2. Kalau hasilnya cuma artikel tipis (atau wiki-nya tidak ketemu), app lanjut ke sumber yang isinya memang walkthrough: **Fextralife** (halaman standar *"Game Progress Route"* — walkthrough terurut per area, mis. Dark Souls III & Bloodborne) lalu **StrategyWiki** (panduan multi-halaman lewat *"Table of Contents"* — semua chapter dimuat sekaligus sebagai grup, mis. Chrono Trigger & Zelda: A Link to the Past).
 3. Hasil yang paling kuat (paling lengkap) yang dipakai, dibersihkan lewat `htmlclean`, dan disimpan ke penyimpanan lokal — jadi kunjungan berikutnya instan, dan game itu otomatis masuk katalog + pencarian.
+
+Platform yang kamu pilih disimpan sebagai label (tampil di kartu katalog + header halaman game) **dan** dipakai untuk mengarahkan sumber: di StrategyWiki, kalau game punya panduan terpisah untuk versi itu (mis. *Tetris DS* vs *Tetris*), panduan versi tersebut yang diambil. Kalau tidak ada, panduan utama game-nya yang dipakai — labelnya tetap tersimpan. Platform bisa diganti kapan saja lewat chip kecil di bawah judul game (mengganti label; untuk mengganti sumbernya, hapus lalu tambah ulang dengan platform yang benar).
 
 Kunjungan pertama butuh ±3–6 detik (bisa ~15 detik untuk panduan multi-halaman besar); habis itu selalu cepat — dan tetap bisa dibuka tanpa internet. Kalau tidak ada sumber yang cocok, game tidak dimasukkan dan dicoba ulang paling cepat 10 menit kemudian.
 
@@ -67,6 +70,7 @@ src/
   lib/store.ts            # penyimpanan IndexedDB (games + sections)
   lib/router.ts           # hash router (#/ dan #/games/<slug>)
   lib/slug.ts             # slugify
+  lib/platforms.ts        # daftar platform + alias (pencocokan versi wiki)
   lib/wiki/mediawiki.ts   # client MediaWiki API (parse, cover, search)
   lib/wiki/htmlclean.ts   # sanitasi HTML wiki → section yang aman & bersih (DOMParser)
   lib/wiki/discover.ts    # pencarian kandidat wiki + halaman walkthrough

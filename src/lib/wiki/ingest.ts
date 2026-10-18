@@ -91,10 +91,15 @@ async function fetchSections(
   return sections;
 }
 
-async function runIngest(slug: string, titleHint?: string): Promise<Game | null> {
+async function runIngest(
+  slug: string,
+  titleHint?: string,
+  platformHint?: string,
+): Promise<Game | null> {
   const hint = titleHint?.trim() ?? "";
   const title = hint.length >= 2 ? hint : deriveTitleFromSlug(slug);
   if (title.length < 2) return null;
+  const platform = platformHint?.trim() ? platformHint.trim() : null;
 
   // Phase 1 — the primary wiki network (Fandom, wiki.gg, ...).
   let wiki = await findBestWiki(title);
@@ -120,7 +125,7 @@ async function runIngest(slug: string, titleHint?: string): Promise<Game | null>
   if (!skipAlts) {
     const alt =
       (await findFextralifeTarget(title)) ??
-      (await findStrategyWikiTarget(title));
+      (await findStrategyWikiTarget(title, platform));
     if (alt) {
       const altClient = makeWikiClient(alt.hit.api);
       const altSections = await fetchSections(altClient, alt.target);
@@ -182,7 +187,7 @@ async function runIngest(slug: string, titleHint?: string): Promise<Game | null>
   await upsertGame({
     slug,
     title: displayTitle,
-    platform: "",
+    platform,
     year: null,
     coverUrl: cover,
     description:
@@ -199,9 +204,15 @@ async function runIngest(slug: string, titleHint?: string): Promise<Game | null>
 
 /**
  * Return the game for `slug`, ingesting it from a public wiki on first
- * request. Resolves to null when no wiki/page could be found.
+ * request. `platformHint` labels the game and steers discovery towards a
+ * platform-specific edition guide when the wiki has one. Resolves to null
+ * when no wiki/page could be found.
  */
-export async function ensureGame(slug: string, titleHint?: string): Promise<Game | null> {
+export async function ensureGame(
+  slug: string,
+  titleHint?: string,
+  platformHint?: string,
+): Promise<Game | null> {
   const existing = await getGameBySlug(slug);
   if (existing) return existing;
 
@@ -211,7 +222,7 @@ export async function ensureGame(slug: string, titleHint?: string): Promise<Game
   const running = inflight.get(slug);
   if (running) return running;
 
-  const task = runIngest(slug, titleHint)
+  const task = runIngest(slug, titleHint, platformHint)
     .catch(() => {
       negative.set(slug, Date.now() + NEGATIVE_TTL_MS);
       return null;
