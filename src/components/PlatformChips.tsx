@@ -16,7 +16,7 @@ export default function PlatformChips({
   allLabel?: string;
 }) {
   const chip = (selected: boolean) =>
-    `rounded-md border px-2.5 py-1 text-xs transition-colors ${
+    `rounded-md border px-2.5 py-1 font-mono text-[11px] uppercase tracking-wide transition-colors ${
       selected
         ? "border-accent/60 bg-accent/15 font-medium text-accent"
         : "border-edge bg-surface2 text-muted hover:border-accent/40 hover:text-ink"

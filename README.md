@@ -10,6 +10,7 @@ Konten diambil dari wiki publik (Fandom, wiki.gg, Fextralife, StrategyWiki, dll 
 - ✅ Progress baca per-bagian (tanpa akun)
 - 🔎 Pencarian instan di katalog lokal — plus **“Ambil dari wiki publik”** untuk game apa pun yang belum ada
 - 🎮 **Pilih platform** — saat menambah game maupun kapan saja di halaman game; kalau wiki sumber punya panduan khusus versi itu (mis. *Tetris DS*), yang diambil panduan versi tersebut
+- 🕹️ **Nuansa retro CRT** — judul & angka pakai font pixel (Silkscreen), sudut siku, hard shadow, progress bar tersegmentasi, dan scanline halus ala monitor CRT; teks isi tetap Geist supaya enak dibaca
 - 📱 Jalan sebagai web di desktop **dan** sebagai **APK Android standalone** (Capacitor)
 
 ## Quickstart (desktop)

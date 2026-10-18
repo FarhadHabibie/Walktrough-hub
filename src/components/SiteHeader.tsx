@@ -10,7 +10,7 @@ export default function SiteHeader() {
   };
 
   return (
-    <header className="site-header sticky top-0 z-40 border-b border-edge bg-bg">
+    <header className="site-header sticky top-0 z-40 border-b-2 border-edge bg-bg">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
         <a
           href="#/"
@@ -24,11 +24,12 @@ export default function SiteHeader() {
           }}
           className="group flex items-center gap-2.5"
         >
-          <span className="grid size-8 place-items-center rounded-lg bg-accent font-mono text-sm font-bold text-bg">
+          <span className="pixel-shadow grid size-8 place-items-center rounded-lg bg-accent font-pixel text-base font-bold text-bg">
             W
           </span>
-          <span className="text-[15px] font-semibold tracking-tight">
-            Walkthrough<span className="text-accent">Hub</span>
+          <span className="font-pixel text-[15px] text-ink">
+            Walkthrough
+            <span className="glow-accent text-accent">Hub</span>
           </span>
         </a>
         <nav className="flex items-center gap-1 text-sm text-muted">
@@ -42,7 +43,7 @@ export default function SiteHeader() {
                 window.setTimeout(goCatalog, 80);
               }
             }}
-            className="rounded-lg px-3 py-1.5 transition hover:bg-surface2 hover:text-ink"
+            className="rounded-lg px-3 py-1.5 font-mono text-xs uppercase tracking-[0.12em] transition hover:bg-surface2 hover:text-ink"
           >
             Katalog
           </button>

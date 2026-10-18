@@ -5,7 +5,7 @@ export default function GameCard({ game }: { game: Game }) {
   return (
     <a
       href={`#/games/${game.slug}`}
-      className="group overflow-hidden rounded-xl border border-edge bg-surface transition-colors duration-150 hover:border-accent/60"
+      className="group overflow-hidden rounded-xl border-2 border-edge bg-surface transition-[border-color,box-shadow] duration-150 hover:border-accent/70 hover:pixel-shadow-accent"
     >
       <div className="relative aspect-[4/5] w-full overflow-hidden bg-surface2">
         {game.cover_url ? (
@@ -19,7 +19,7 @@ export default function GameCard({ game }: { game: Game }) {
           />
         ) : (
           <div className="grid h-full w-full place-items-center bg-surface2">
-            <span className="font-mono text-4xl font-bold text-muted/60">
+            <span className="font-pixel text-4xl text-muted/60">
               {game.title.charAt(0)}
             </span>
           </div>
@@ -31,10 +31,10 @@ export default function GameCard({ game }: { game: Game }) {
           {game.title}
         </div>
         <div className="mt-1.5 flex items-baseline justify-between gap-2 text-xs text-muted">
-          <span className="truncate">
+          <span className="truncate font-mono text-[10px] uppercase tracking-wide">
             {[game.year || null, game.platform].filter(Boolean).join(" · ")}
           </span>
-          <span className="shrink-0 font-mono text-[11px]">
+          <span className="shrink-0 font-mono text-[10px]">
             {game.section_count} bagian
           </span>
         </div>

@@ -32,12 +32,12 @@ export default function HomeView() {
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6">
       <section className="pb-12 pt-10 sm:pt-16">
-        <span className="inline-flex items-center gap-2 rounded-md border border-edge bg-surface px-2.5 py-1 text-xs text-muted">
+        <span className="inline-flex items-center gap-2 rounded-md border border-edge bg-surface px-2.5 py-1 font-mono text-[11px] uppercase tracking-[0.14em] text-muted">
           {games === null
             ? "memuat katalog…"
             : `${games.length} game · ${totalSections.toLocaleString("id-ID")} bagian walkthrough`}
         </span>
-        <h1 className="mt-5 max-w-3xl text-3xl font-bold leading-[1.15] tracking-tight sm:text-4xl">
+        <h1 className="mt-5 max-w-3xl font-pixel text-[1.55rem] font-bold leading-[1.35] sm:text-[2rem] sm:leading-[1.3]">
           Semua walkthrough game,{" "}
           <span className="text-accent">dalam satu halaman</span>.
         </h1>
@@ -56,10 +56,10 @@ export default function HomeView() {
       <section id="games" className="scroll-mt-24 pb-20">
         <div className="mb-6 flex items-end justify-between gap-4">
           <div>
-            <h2 className="text-xl font-semibold tracking-tight sm:text-2xl">
+            <h2 className="font-pixel text-lg tracking-normal sm:text-xl">
               Katalog game
             </h2>
-            <p className="mt-1 text-sm text-muted">
+            <p className="mt-1.5 text-sm text-muted">
               Konten dari wiki publik, semuanya langsung terbuka di sini.
             </p>
           </div>
@@ -69,12 +69,13 @@ export default function HomeView() {
         </div>
 
         {games === null ? (
-          <div className="rounded-xl border border-edge bg-surface p-8 text-center">
-            <span className="mx-auto block size-5 animate-spin rounded-full border-2 border-edge border-t-accent" />
-            <p className="mt-3 text-sm text-muted">Memuat katalog…</p>
+          <div className="rounded-xl border-2 border-edge bg-surface p-8 text-center">
+            <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">
+              Memuat katalog<span className="blink text-accent">▮</span>
+            </p>
           </div>
         ) : games.length === 0 ? (
-          <div className="rounded-xl border border-edge bg-surface p-8 text-center">
+          <div className="rounded-xl border-2 border-edge bg-surface p-8 text-center">
             <p className="text-sm text-muted">
               Belum ada game di katalog. Ketik nama game di kotak pencarian di
               atas, lalu pilih &ldquo;Ambil dari wiki publik&rdquo;.

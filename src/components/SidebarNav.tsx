@@ -8,7 +8,7 @@ function CheckDot({ done, active }: { done: boolean; active: boolean }) {
   return (
     <span
       aria-hidden
-      className={`grid size-[18px] shrink-0 place-items-center rounded-full border text-[10px] transition ${
+      className={`grid size-[18px] shrink-0 place-items-center rounded-none border text-[10px] transition ${
         done
           ? "border-ok/60 bg-ok/15 text-ok"
           : active
@@ -54,18 +54,18 @@ function NavList({
                 window.requestAnimationFrame(() => scrollToAnchor(s.anchor));
               }}
               aria-current={isActive ? "true" : undefined}
-              className={`flex w-full items-start gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] leading-snug transition-colors ${
+              className={`flex w-full items-start gap-2.5 rounded-lg border-l-2 px-2.5 py-2 text-left text-[13px] leading-snug transition-colors ${
                 isActive
-                  ? "bg-accent/10 text-ink"
+                  ? "border-accent bg-accent/10 text-ink"
                   : done
-                    ? "text-muted hover:bg-surface2 hover:text-ink"
-                    : "text-ink/85 hover:bg-surface2 hover:text-ink"
+                    ? "border-transparent text-muted hover:bg-surface2 hover:text-ink"
+                    : "border-transparent text-ink/85 hover:bg-surface2 hover:text-ink"
               }`}
             >
               <CheckDot done={done} active={isActive} />
               <span className="min-w-0">
                 <span
-                  className={`mr-1.5 font-mono text-[11px] ${isActive ? "text-accent" : "text-muted"}`}
+                  className={`mr-1.5 font-pixel text-[11px] ${isActive ? "text-accent" : "text-muted"}`}
                 >
                   {String(i + 1).padStart(2, "0")}
                 </span>
@@ -119,7 +119,7 @@ export default function SidebarNav({ sections }: { sections: SectionMeta[] }) {
       </aside>
 
       <details
-        className="mb-6 rounded-xl border border-edge bg-surface lg:hidden"
+        className="mb-6 rounded-xl border-2 border-edge bg-surface lg:hidden"
         open={mobileOpen}
         onToggle={(e) => setMobileOpen((e.target as HTMLDetailsElement).open)}
       >

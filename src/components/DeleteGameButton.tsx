@@ -92,7 +92,7 @@ export default function DeleteGameButton({
       disabled={busy}
       aria-label={`Hapus walkthrough ${title} dari katalog`}
       onClick={() => void onDelete()}
-      className="inline-flex items-center gap-1.5 rounded-lg border border-edge bg-surface px-3 py-1.5 text-xs text-muted transition-colors hover:border-red-400/50 hover:text-red-300 disabled:opacity-50"
+      className="inline-flex items-center gap-1.5 rounded-lg border border-edge bg-surface px-3 py-1.5 font-mono text-[11px] uppercase tracking-wide text-muted transition-colors hover:border-red-400/50 hover:text-red-300 disabled:opacity-50"
     >
       {busy ? (
         "Menghapus…"

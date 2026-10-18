@@ -88,9 +88,10 @@ export default function GameView({
   if (state.status === "loading") {
     return (
       <div className="mx-auto grid max-w-2xl place-items-center px-4 py-28 text-center">
-        <div className="rounded-xl border border-edge bg-surface p-10">
-          <span className="mx-auto block size-6 animate-spin rounded-full border-2 border-edge border-t-accent" />
-          <p className="mt-4 text-sm text-muted">Memuat…</p>
+        <div className="w-full max-w-sm rounded-xl border-2 border-edge bg-surface p-10">
+          <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">
+            Memuat<span className="blink text-accent">▮</span>
+          </p>
         </div>
       </div>
     );
@@ -99,9 +100,11 @@ export default function GameView({
   if (state.status === "ingesting") {
     return (
       <div className="mx-auto grid max-w-2xl place-items-center px-4 py-28 text-center">
-        <div className="rounded-xl border border-edge bg-surface p-10">
-          <span className="mx-auto block size-6 animate-spin rounded-full border-2 border-edge border-t-accent" />
-          <h1 className="mt-5 text-xl font-semibold tracking-tight">
+        <div className="w-full max-w-md rounded-xl border-2 border-edge bg-surface p-10">
+          <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">
+            Menghubungi wiki publik<span className="blink text-accent">▮</span>
+          </p>
+          <h1 className="mt-5 font-pixel text-lg leading-snug sm:text-xl">
             Mengambil walkthrough{" "}
             <span className="text-accent">
               &ldquo;{deriveTitleFromSlug(slug)}&rdquo;
@@ -120,9 +123,11 @@ export default function GameView({
   if (state.status === "missing") {
     return (
       <div className="mx-auto grid max-w-2xl place-items-center px-4 py-28 text-center">
-        <div className="rounded-xl border border-edge bg-surface p-10">
-          <div className="font-mono text-4xl font-bold text-muted">404</div>
-          <h1 className="mt-4 text-2xl font-semibold tracking-tight">
+        <div className="w-full max-w-lg rounded-xl border-2 border-edge bg-surface p-10">
+          <div className="glow-accent font-pixel text-5xl font-bold text-accent/90">
+            404
+          </div>
+          <h1 className="mt-4 font-pixel text-xl leading-snug">
             Game tidak ditemukan
           </h1>
           <p className="mt-3 text-sm text-muted">
@@ -133,7 +138,7 @@ export default function GameView({
           </p>
           <a
             href="#/"
-            className="mt-7 inline-block rounded-lg border border-accent/50 bg-accent/15 px-5 py-2 text-sm font-medium text-accent transition-colors hover:bg-accent/25"
+            className="pixel-shadow mt-7 inline-block rounded-lg border-2 border-accent bg-accent px-5 py-2.5 font-pixel text-xs font-bold uppercase text-bg transition-colors hover:border-accent2 hover:bg-accent2"
           >
             Lihat semua game
           </a>

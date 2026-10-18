@@ -17,7 +17,7 @@ export default function SectionHead({
   return (
     <div className="mb-5 flex items-start justify-between gap-4 border-b border-edge pb-4">
       <h2 className="min-w-0 text-xl font-semibold tracking-tight sm:text-2xl">
-        <span className="mr-2.5 font-mono text-sm font-normal text-muted sm:text-base">
+        <span className="mr-2.5 font-pixel text-[13px] font-normal text-accent/90 sm:text-[15px]">
           {String(index + 1).padStart(2, "0")}
         </span>
         {title}
@@ -27,7 +27,7 @@ export default function SectionHead({
         onClick={() => toggle(anchor)}
         disabled={!ready}
         aria-pressed={done}
-        className={`shrink-0 whitespace-nowrap rounded-lg border px-3.5 py-1.5 text-xs font-medium transition-colors ${
+        className={`shrink-0 whitespace-nowrap rounded-lg border px-3.5 py-1.5 font-mono text-[11px] font-medium uppercase tracking-wide transition-colors ${
           done
             ? "border-ok/50 bg-ok/15 text-ok"
             : "border-edge bg-surface2 text-muted hover:border-accent/70 hover:text-ink"

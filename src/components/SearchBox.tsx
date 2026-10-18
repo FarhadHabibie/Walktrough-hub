@@ -124,7 +124,7 @@ export default function SearchBox({ autoFocus = false }: { autoFocus?: boolean }
 
   return (
     <div ref={boxRef} className="relative w-full max-w-2xl">
-      <div className="flex items-center gap-3 rounded-lg border border-edge bg-surface px-4 py-3 transition-colors focus-within:border-accent/70 focus-within:ring-2 focus-within:ring-accent/20">
+      <div className="flex items-center gap-3 rounded-lg border-2 border-edge bg-surface px-4 py-3 transition-colors focus-within:border-accent/70 focus-within:ring-2 focus-within:ring-accent/20">
         <SearchIcon className="size-5 shrink-0 text-muted" />
         <input
           value={q}
@@ -138,10 +138,12 @@ export default function SearchBox({ autoFocus = false }: { autoFocus?: boolean }
           aria-expanded={open}
           aria-controls="wt-search-results"
           placeholder="Cari game… (contoh: elden ring, minecraft, terraria)"
-          className="w-full bg-transparent text-[15px] text-ink outline-none placeholder:text-muted/70"
+          className="w-full bg-transparent font-mono text-sm text-ink outline-none placeholder:text-muted/70"
         />
         {loading && (
-          <span className="size-4 shrink-0 animate-spin rounded-full border-2 border-edge border-t-accent" />
+          <span aria-hidden className="blink shrink-0 font-pixel text-sm text-accent">
+            ▮
+          </span>
         )}
       </div>
 
@@ -149,7 +151,7 @@ export default function SearchBox({ autoFocus = false }: { autoFocus?: boolean }
         <div
           id="wt-search-results"
           role={platformStep ? undefined : "listbox"}
-          className="absolute z-30 mt-2 w-full overflow-hidden rounded-lg border border-edge bg-surface shadow-md"
+          className="absolute z-30 mt-2 w-full overflow-hidden rounded-lg border-2 border-edge bg-surface pixel-shadow"
         >
           {results.length === 0 && !loading ? (
             <div className="px-3.5 py-3 text-sm text-muted">
@@ -177,7 +179,7 @@ export default function SearchBox({ autoFocus = false }: { autoFocus?: boolean }
                     className="h-12 w-9 shrink-0 rounded-md border border-edge object-cover"
                   />
                 ) : (
-                  <span className="grid h-12 w-9 shrink-0 place-items-center rounded-md border border-edge bg-surface2 font-mono text-sm text-muted">
+                  <span className="grid h-12 w-9 shrink-0 place-items-center rounded-md border border-edge bg-surface2 font-pixel text-sm text-muted">
                     {r.title.charAt(0)}
                   </span>
                 )}
@@ -185,7 +187,7 @@ export default function SearchBox({ autoFocus = false }: { autoFocus?: boolean }
                   <span className="block truncate text-sm font-medium text-ink">
                     {r.title}
                   </span>
-                  <span className="block truncate text-xs text-muted">
+                  <span className="block truncate font-mono text-[10px] uppercase tracking-wide text-muted">
                     {[r.year, r.platform].filter(Boolean).join(" · ")}
                   </span>
                 </span>
@@ -204,7 +206,7 @@ export default function SearchBox({ autoFocus = false }: { autoFocus?: boolean }
               >
                 <span
                   aria-hidden
-                  className="grid h-12 w-9 shrink-0 place-items-center rounded-md border border-edge bg-surface2 text-lg leading-none text-muted"
+                  className="grid h-12 w-9 shrink-0 place-items-center rounded-md border border-edge bg-surface2 font-pixel text-base leading-none text-muted"
                 >
                   +
                 </span>
