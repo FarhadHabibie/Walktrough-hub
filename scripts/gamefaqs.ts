@@ -207,6 +207,53 @@ export function scoreGames(games: GameLink[], query: string): GameLink[] {
   );
 }
 
+/* ------------------------------------------------------------------ *
+ * Query repair — "tales ofvesperia" → "tales of vesperia"
+ *
+ * Users often type without the inner spaces. GameFAQs' own fuzzy search
+ * then drops the real match entirely and only returns near-misses, whose
+ * row 1 wins the tie — the wrong game gets imported. Respacing the query
+ * before the retry fixes that.
+ * ------------------------------------------------------------------ */
+
+const GLUE_WORDS = ["of", "the", "and", "to", "in", "on"] as const;
+
+/** Split a glued token like "talesofvesperia" into "tales of vesperia". */
+function unglueWord(word: string): string {
+  if (word.length < 6) return word;
+  for (const g of GLUE_WORDS) {
+    const i = word.lastIndexOf(g);
+    if (i < 0) continue;
+    const left = word.slice(0, i);
+    const right = word.slice(i + g.length);
+    const rightOk = g === "of" ? right.length >= 2 : right.length >= 3;
+    const ok =
+      i > 0
+        ? left.length >= 3 && rightOk
+        : (g === "of" || g === "the" || g === "and") && right.length >= 4;
+    if (ok) {
+      return `${unglueWord(left)}${left ? " " : ""}${g} ${unglueWord(right)}`;
+    }
+  }
+  return word;
+}
+
+/** Best-effort respacing of a query typed without inner spaces. */
+export function correctQuery(query: string): string {
+  return query
+    .trim()
+    .split(/\s+/)
+    .map((w) => unglueWord(w.toLowerCase()))
+    .join(" ");
+}
+
+function queryTokens(query: string): string[] {
+  return query
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((t) => t.length >= 3);
+}
+
 function parseGameTitle(html: string): string | null {
   const title = pageTitle(html);
   if (!title) return null;
@@ -282,7 +329,32 @@ export async function fetchGamefaq(query: string): Promise<FaqPayload> {
     );
     const games = parseSearchGames(searchHtml);
     if (games.length === 0) throw new Error("game tidak ditemukan di GameFAQs");
-    const game = scoreGames(games, query)[0];
+    let game = scoreGames(games, query)[0];
+
+    // Glued stopwords ("tales ofvesperia") make GameFAQs' fuzzy search drop
+    // the real match, leaving only near-misses for row 1 to win — the wrong
+    // game. Retry once with the respaced query, but only trust the retry
+    // when its winner matches every token of the corrected query.
+    const toks = queryTokens(query);
+    const allHit = (g: GameLink): boolean =>
+      toks.length > 0 && toks.every((t) => g.title.toLowerCase().includes(t));
+    if (!allHit(game)) {
+      const fixed = correctQuery(query);
+      if (fixed.toLowerCase() !== query.toLowerCase()) {
+        const retry = parseSearchGames(
+          await gfGet(`${ORIGIN}/search?game=${encodeURIComponent(fixed)}`, jar),
+        );
+        const toks2 = queryTokens(fixed);
+        const cand = retry.length ? scoreGames(retry, fixed)[0] : undefined;
+        if (
+          cand &&
+          toks2.length > 0 &&
+          toks2.every((t) => cand.title.toLowerCase().includes(t))
+        ) {
+          game = cand;
+        }
+      }
+    }
 
     const listHtml = await gfGet(
       `${ORIGIN}${game.path.replace(/\/+$/, "")}/faqs`,

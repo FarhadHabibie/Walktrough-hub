@@ -57,19 +57,24 @@ menawarkan baris **“Ambil dari GameFAQs”**. FAQ/walkthrough paling lengkap d
 otomatis (judul yang mengandung *walkthrough* menang atas *guide*/*faq*, lalu ukuran K terbesar),
 lalu disimpan seperti sumber lain:
 
-- **Di HP (APK)** — pengambilan berjalan di dalam app lewat **WebView tersembunyi**: pencarian game →
-  halaman game → daftar FAQ → FAQ terbaik → semua blok teksnya digabung. WebView-nya mengirim header
-  *client hints* persis seperti Chrome (tanpa itu GameFAQs mengembalikan halaman pencarian kosong),
-  dan kalau Cloudflare memunculkan pemeriksaan, app menunggu sebentar dulu — biasanya lolos sendiri.
-  Kalau tetap gagal (atau ada langkah lain yang macet), **browser kecil dalam app terbuka** dengan
-  pesan alasan di atasnya; cari/buka halaman FAQ-nya dan tekan **SALIN** di toolbar, teksnya langsung
-  masuk ke app. Tidak ada server dan tidak ada data yang dikirim ke mana pun — WebView memakai
-  koneksi internetmu sendiri, sama seperti membuka situsnya di browser.
+- **Di HP (APK)** — pengambilan berjalan di dalam app lewat **WebView tersembunyi**. WebView membuka
+  satu halaman GameFAQs dengan header *client hints* persis seperti Chrome (tanpa itu hasil
+  pencarian kosong), lalu **halaman pencarian, daftar FAQ, dan FAQ-nya diunduh lewat `fetch()` dari
+  dalam halaman itu sendiri** — sama seperti browser asli: hint, cookie, dan redirect ikut otomatis,
+  sejalur dengan desktop yang sudah terbukti jalan (dan teksnya ditarik ke app bertahap per potongan,
+  jadi FAQ besar pun aman). Kalau Cloudflare memunculkan pemeriksaan, app mencoba ulang beberapa kali
+  — biasanya lolos sendiri. Kalau tetap gagal (atau ada langkah lain yang macet), **browser kecil
+  dalam app terbuka** dengan pesan alasan di atasnya; cari/buka halaman FAQ-nya dan tekan **SALIN**
+  di toolbar, teksnya langsung masuk ke app. Tidak ada server dan tidak ada data yang dikirim ke mana
+  pun — WebView memakai koneksi internetmu sendiri, sama seperti membuka situsnya di browser.
 - **Di desktop** — browser biasa tidak bisa menarik halaman GameFAQs lintas-origin (CORS), jadi
   `npm start` (server lokal di port 3765) menyediakan API kecil `/api/gamefaqs/fetch` yang mengambil
   FAQ di mesin yang sama — app mendeteksinya lewat `/api/gamefaqs/ping` dan menampilkan baris itu
   hanya saat server lokalnya ada. (Kalau `out/` di-host statis tanpa server itu, barisnya hilang
   sendiri.)
+
+Kalau nama game diketik menyambung (`tales ofvesperia`), pencarian dicoba ulang sekali dengan spasi
+yang diperbaiki (`tales of vesperia`) — retry itu hanya dipakai kalau hasilnya benar-benar cocok.
 
 Teks FAQ dirender sebagai monospace `pre-wrap` (gambar ASCII dan tabel tetap sejajar, baris panjang
 dibungkus), lalu dipotong per bab lewat deteksi heading (judul berkotak `====`, baris "Chapter N",
