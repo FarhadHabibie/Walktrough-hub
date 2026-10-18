@@ -1,5 +1,11 @@
 # WalkthroughHub
 
+![Next.js 16](https://img.shields.io/badge/Next.js-16-black?style=flat-square&logo=next.js)
+![Capacitor 8](https://img.shields.io/badge/Capacitor-8-3880ff?style=flat-square&logo=capacitor&logoColor=white)
+![Android 7+](https://img.shields.io/badge/Android-7%2B-3ddc84?style=flat-square&logo=android&logoColor=white)
+![Lisensi MIT](https://img.shields.io/badge/lisensi-MIT-blue?style=flat-square)
+![Bahasa: Indonesia](https://img.shields.io/badge/bahasa-Indonesia-e34f26?style=flat-square)
+
 Aplikasi baca walkthrough game **lengkap dalam satu halaman**. Cari game → buka → semua bagian walkthrough langsung dimuat (nggak perlu klik-klik chapter), plus **progress tracking** yang tersimpan otomatis.
 
 Konten diambil dari wiki publik (Fandom, wiki.gg, Fextralife, StrategyWiki, dll — MediaWiki API) **langsung oleh aplikasi** (browser/WebView memanggil API-nya sendiri — semua sumber mengizinkan CORS), lalu disimpan **di perangkat** (IndexedDB) — tanpa server:
@@ -14,6 +20,20 @@ Konten diambil dari wiki publik (Fandom, wiki.gg, Fextralife, StrategyWiki, dll 
 - 🎮 **Pilih platform** — saat menambah game maupun kapan saja di halaman game; kalau wiki sumber punya panduan khusus versi itu (mis. *Tetris DS*), yang diambil panduan versi tersebut
 - 🕹️ **Nuansa retro CRT** — judul & angka pakai font pixel (Silkscreen), sudut siku, hard shadow, progress bar tersegmentasi, dan scanline halus ala monitor CRT; teks isi tetap Geist supaya enak dibaca
 - 📱 Jalan sebagai web di desktop **dan** sebagai **APK Android standalone** (Capacitor)
+
+## Tangkapan layar
+
+**Katalog** — pencarian instan, tambah game dari wiki publik atau GameFAQs, hapus per kartu:
+
+![Katalog WalkthroughHub](docs/home.png)
+
+**Halaman game** — daftar isi di kiri, seluruh walkthrough dimuat sekaligus, progres per bagian:
+
+![Halaman walkthrough dengan daftar isi](docs/reader.png)
+
+**Di HP** — tampilan yang sama sebagai APK standalone, hasilnya tersimpan offline:
+
+<p align="center"><img src="docs/mobile.png" width="370" alt="Tampilan WalkthroughHub di HP"></p>
 
 ## Quickstart (desktop)
 
@@ -137,6 +157,10 @@ Teknologi: **Next.js 16** (static export, Turbopack) · **Tailwind CSS 4** · **
 1. Aplikasi fetch halaman wiki via `action=parse` (MediaWiki API) — langsung dari browser/WebView, tanpa proxy.
 2. `htmlclean.ts` membuang script/navbox/infobox/referensi, men-sanitasi atribut (allowlist), meng-absolutize semua link/gambar, lalu memotong konten menjadi **section** per heading (h1–h2, atau sampai h3 untuk sumber yang memakai sub-heading sebagai bab — seperti "Game Progress Route" Fextralife).
 3. Section disimpan di IndexedDB perangkat; HTML-nya dirender ulang di app dengan styling sendiri (`.prose-wt`).
+
+## Lisensi
+
+Kode aplikasi ini berlisensi **MIT** (lihat [`LICENSE`](LICENSE)) — bebas dipakai, dimodifikasi, dan dibagikan dengan tetap mencantumkan lisensi aslinya. **Konten walkthrough tidak termasuk** lisensi ini; aturannya di bagian bawah.
 
 ## Lisensi konten
 
