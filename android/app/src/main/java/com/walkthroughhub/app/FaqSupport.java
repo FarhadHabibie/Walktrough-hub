@@ -164,8 +164,11 @@ final class FaqSupport {
             "      const m = /\\/faqs\\/(\\d+)/.exec(href);\n" +
             "      if (!m) return;\n" +
             "      let kb = 0;\n" +
-            "      const tr = a.closest('tr');\n" +
-            "      if (tr) { const mm = /(\\d+(?:\\.\\d+)?)K\\b/.exec(tr.textContent || ''); if (mm) kb = parseFloat(mm[1]); }\n" +
+            "      const box = a.closest('tr') || a.closest('li') || a.parentElement;\n" +
+            "      if (box) {\n" +
+            "        const nums = ((box.textContent || '').match(/\\d+(?:\\.\\d+)?K(?:B)?\\b/gi) || []);\n" +
+            "        if (nums.length) kb = Math.max.apply(null, nums.map((x) => parseFloat(x)));\n" +
+            "      }\n" +
             "      const cur = map.get(m[1]);\n" +
             "      const text = (a.textContent || '').trim();\n" +
             "      if (cur && cur.text.length >= text.length) return;\n" +
@@ -173,6 +176,84 @@ final class FaqSupport {
             "    });\n" +
             "    const rank = (t) => /walkthrough/i.test(t) ? 0 : /guide/i.test(t) ? 1 : /faq/i.test(t) ? 2 : 3;\n" +
             "    return Array.from(map.values()).sort((a, b) => rank(a.text) - rank(b.text) || b.kb - a.kb);\n" +
+            "  };\n" +
+            "  const guideFromDoc = (doc) => {\n" +
+            "    const region = doc.querySelector('#faqwrap');\n" +
+            "    if (!region) return null;\n" +
+            "    const toc = [];\n" +
+            "    const seen = {};\n" +
+            "    const tocEl = region.querySelector('.ftoc');\n" +
+            "    if (tocEl) {\n" +
+            "      tocEl.querySelectorAll('a[href]').forEach((a) => {\n" +
+            "        const slug = a.getAttribute('href') || '';\n" +
+            "        if (!/^[a-z0-9][a-z0-9-]*$/i.test(slug) || seen[slug]) return;\n" +
+            "        seen[slug] = 1;\n" +
+            "        toc.push({ slug: slug, title: (a.textContent || '').replace(/\\s+/g, ' ').trim() || slug });\n" +
+            "      });\n" +
+            "    }\n" +
+            "    const parts = [];\n" +
+            "    const walk = (node) => {\n" +
+            "      if (node.nodeType === 3) { parts.push(node.nodeValue || ''); return; }\n" +
+            "      if (node.nodeType !== 1) return;\n" +
+            "      const tag = (node.tagName || '').toLowerCase();\n" +
+            "      if (tag === 'script' || tag === 'style') return;\n" +
+            "      if (node.classList && node.classList.contains('ftoc')) return;\n" +
+            "      const block = /^(p|h[1-6]|div|blockquote|table|tr|ol|ul|section|article|main)$/.test(tag);\n" +
+            "      if (block) parts.push('\\n');\n" +
+            "      if (tag === 'li') parts.push('\\n- ');\n" +
+            "      if (tag === 'br') { parts.push('\\n'); return; }\n" +
+            "      if (tag === 'td' || tag === 'th') parts.push(' ');\n" +
+            "      for (let i = 0; i < node.childNodes.length; i++) walk(node.childNodes[i]);\n" +
+            "      if (tag === 'td' || tag === 'th') parts.push(' | ');\n" +
+            "      if (block || tag === 'li') parts.push('\\n');\n" +
+            "    };\n" +
+            "    walk(region);\n" +
+            "    const text = parts.join('')\n" +
+            "      .replace(/\\r\\n?/g, '\\n')\n" +
+            "      .replace(/[ \\t]+\\n/g, '\\n')\n" +
+            "      .replace(/[ \\t]{2,}/g, ' ')\n" +
+            "      .replace(/^ *\\| ?/gm, '')\n" +
+            "      .replace(/ \\| ?\\n/g, '\\n')\n" +
+            "      .replace(/ *\\| *$/gm, '')\n" +
+            "      .replace(/\\n{3,}/g, '\\n\\n')\n" +
+            "      .trim();\n" +
+            "    return { text: text, toc: toc };\n" +
+            "  };\n" +
+            "  const crawlGuide = async (faqPath, toc) => {\n" +
+            "    const list = toc.slice(0, 200);\n" +
+            "    const base = faqPath.replace(/\\/+$/, '');\n" +
+            "    const deadline = Date.now() + 150000;\n" +
+            "    const results = new Array(list.length).fill(null);\n" +
+            "    let next = 0;\n" +
+            "    const worker = async () => {\n" +
+            "      for (;;) {\n" +
+            "        const i = next++;\n" +
+            "        if (i >= list.length || Date.now() > deadline) return;\n" +
+            "        try {\n" +
+            "          const r = await fetch(base + '/' + list[i].slug, { credentials: 'include' });\n" +
+            "          if (!r.ok) continue;\n" +
+            "          const d = new DOMParser().parseFromString(await r.text(), 'text/html');\n" +
+            "          const g = guideFromDoc(d);\n" +
+            "          if (g && g.text) results[i] = { title: list[i].title, text: g.text };\n" +
+            "        } catch (e) {}\n" +
+            "      }\n" +
+            "    };\n" +
+            "    const workers = [];\n" +
+            "    for (let i = 0; i < 6; i++) workers.push(worker());\n" +
+            "    await Promise.all(workers);\n" +
+            "    const ok = results.filter(Boolean);\n" +
+            "    if (!ok.length) return null;\n" +
+            "    const need = Math.max(1, Math.floor(list.length * 0.7));\n" +
+            "    if (ok.length < 8 && ok.length < need) return null;\n" +
+            "    return ok.map((p) => {\n" +
+            "      let body = p.text;\n" +
+            "      const nl = body.indexOf('\\n');\n" +
+            "      const first = (nl < 0 ? body : body.slice(0, nl)).trim().toLowerCase();\n" +
+            "      if (first === p.title.replace(/\\s+/g, ' ').trim().toLowerCase()) {\n" +
+            "        body = body.slice(nl < 0 ? body.length : nl).replace(/^\\n+/, '');\n" +
+            "      }\n" +
+            "      return p.title.slice(0, 80).toUpperCase() + '\\n\\n' + body;\n" +
+            "    }).join('\\n\\n\\n');\n" +
             "  };\n" +
             "  (async () => {\n" +
             "    try {\n" +
@@ -211,22 +292,35 @@ final class FaqSupport {
             "        const t = p.textContent || '';\n" +
             "        if (t.trim().length > 0) pres.push(t);\n" +
             "      });\n" +
-            "      const text = pres.join('\\n\\n').replace(/\\r\\n?/g, '\\n').replace(/\\n{4,}/g, '\\n\\n\\n').trim();\n" +
+            "      let text = pres.join('\\n\\n').replace(/\\r\\n?/g, '\\n').replace(/\\n{4,}/g, '\\n\\n\\n').trim();\n" +
+            "      if (text.length < 400) {\n" +
+            "        const guide = guideFromDoc(fdoc);\n" +
+            "        if (guide && guide.text.length >= 300) {\n" +
+            "          text = guide.text;\n" +
+            "          if (guide.toc.length > 0 && guide.toc.length <= 200) {\n" +
+            "            const full = await crawlGuide(faq.href, guide.toc);\n" +
+            "            if (full) text = full;\n" +
+            "          }\n" +
+            "        }\n" +
+            "      }\n" +
             "      if (text.length < 400) return err('faq-empty');\n" +
             "      const ft = ftitle.replace(/\\s+-\\s+GameFAQs\\s*$/i, '').trim();\n" +
             "      const segs = ft.split(/\\s+-\\s+/);\n" +
             "      let gameTitle = segs.length ? segs[0].trim() : '';\n" +
             "      let faqTitle = '';\n" +
             "      let author = '';\n" +
-            "      for (let i = 1; i < segs.length; i++) {\n" +
+            "      for (let i = 0; i < segs.length; i++) {\n" +
             "        const s = segs[i].trim();\n" +
             "        if (!s) continue;\n" +
             "        if (!author && /^by\\s+/i.test(s)) { author = s.replace(/^by\\s+/i, '').trim(); continue; }\n" +
             "        if (!faqTitle && /walkthrough|guide|faq/i.test(s)) faqTitle = s;\n" +
             "      }\n" +
+            "      // The FAQ list page carries the bare game name (\"… FAQs, … for PC\");\n" +
+            "      // HTML-guide page titles glue it into the guide title instead.\n" +
+            "      const fromList = ltitle.replace(/\\s+FAQs,.*$/i, '').trim();\n" +
+            "      if (fromList && /\\bFAQs,/i.test(ltitle)) gameTitle = fromList;\n" +
             "      if (!gameTitle) {\n" +
-            "        gameTitle = ltitle.replace(/\\s+FAQs,.*$/i, '').replace(/\\s+for\\s+.*$/i, '').trim()\n" +
-            "          || pick.text || Q;\n" +
+            "        gameTitle = fromList.replace(/\\s+for\\s+.*$/i, '').trim() || pick.text || Q;\n" +
             "      }\n" +
             "      window.__wtFaq = {\n" +
             "        status: 'done',\n" +
@@ -243,6 +337,7 @@ final class FaqSupport {
             "  })();\n" +
             "  return 'started';\n" +
             "})()\n";
+
 
     /** Sets the query global and starts CHAIN_JS in the page. */
     static String kickoffJs(String query) {
@@ -290,8 +385,41 @@ final class FaqSupport {
             "if (/just a moment|attention required|access denied/i.test(title)) return { challenge: true };" +
             "const pres = Array.from(document.querySelectorAll('pre'))" +
             "  .map(p => p.textContent || '').filter(t => t.length > 100);" +
-            "const text = pres.join('\\n\\n')" +
+            "let text = pres.join('\\n\\n')" +
             "  .replace(/\\r\\n?/g, '\\n').replace(/\\n{4,}/g, '\\n\\n\\n').trim();" +
+            // HTML guides have no <pre>; convert the #faqwrap body of the
+            // CURRENT page (the silent chain crawls the other TOC pages).
+            "if (text.length < 400) {" +
+            "  const region = document.querySelector('#faqwrap');" +
+            "  if (region) {" +
+            "    const parts = [];" +
+            "    const walk = (node) => {" +
+            "      if (node.nodeType === 3) { parts.push(node.nodeValue || ''); return; }" +
+            "      if (node.nodeType !== 1) return;" +
+            "      const tag = (node.tagName || '').toLowerCase();" +
+            "      if (tag === 'script' || tag === 'style') return;" +
+            "      if (node.classList && node.classList.contains('ftoc')) return;" +
+            "      const block = /^(p|h[1-6]|div|blockquote|table|tr|ol|ul|section|article|main)$/.test(tag);" +
+            "      if (block) parts.push('\\n');" +
+            "      if (tag === 'li') parts.push('\\n- ');" +
+            "      if (tag === 'br') { parts.push('\\n'); return; }" +
+            "      if (tag === 'td' || tag === 'th') parts.push(' ');" +
+            "      for (let i = 0; i < node.childNodes.length; i++) walk(node.childNodes[i]);" +
+            "      if (tag === 'td' || tag === 'th') parts.push(' | ');" +
+            "      if (block || tag === 'li') parts.push('\\n');" +
+            "    };" +
+            "    walk(region);" +
+            "    text = parts.join('')" +
+            "      .replace(/\\r\\n?/g, '\\n')" +
+            "      .replace(/[ \\t]+\\n/g, '\\n')" +
+            "      .replace(/[ \\t]{2,}/g, ' ')" +
+            "      .replace(/^ *\\| ?/gm, '')" +
+            "      .replace(/ \\| ?\\n/g, '\\n')" +
+            "      .replace(/ *\\| *$/gm, '')" +
+            "      .replace(/\\n{3,}/g, '\\n\\n')" +
+            "      .trim();" +
+            "  }" +
+            "}" +
             "return { challenge: false, title: title, url: location.href, text: text };" +
             "})()";
     }

@@ -54,15 +54,18 @@ Walkthrough yang sudah tersimpan bisa **dihapus** kapan saja: lewat ikon hapus d
 
 Untuk game yang wiki-nya tipis — atau yang panduan klasiknya hanya ada di sana — pencarian juga
 menawarkan baris **“Ambil dari GameFAQs”**. FAQ/walkthrough paling lengkap diambil dan dipilih
-otomatis (judul yang mengandung *walkthrough* menang atas *guide*/*faq*, lalu ukuran K terbesar),
-lalu disimpan seperti sumber lain:
+otomatis (judul yang mengandung *walkthrough* menang atas *guide*/*faq*, lalu ukuran file terbesar
+K/KB), lalu disimpan seperti sumber lain. Dua bentuk halaman GameFAQs ditangani: FAQ klasik
+(teks `<pre>`) dan **guide HTML baru** (“Walkthrough & Guide” tanpa `<pre>`) — untuk guide HTML,
+seluruh halaman daftar isinya diikuti satu per satu lalu dirangkai, jadi yang tersimpan tetap versi
+paling lengkap (bisa 100+ bagian), bukan cuma halaman pertamanya:
 
 - **Di HP (APK)** — pengambilan berjalan di dalam app lewat **WebView tersembunyi**. WebView membuka
   satu halaman GameFAQs dengan header *client hints* persis seperti Chrome (tanpa itu hasil
   pencarian kosong), lalu **halaman pencarian, daftar FAQ, dan FAQ-nya diunduh lewat `fetch()` dari
   dalam halaman itu sendiri** — sama seperti browser asli: hint, cookie, dan redirect ikut otomatis,
   sejalur dengan desktop yang sudah terbukti jalan (dan teksnya ditarik ke app bertahap per potongan,
-  jadi FAQ besar pun aman). Kalau Cloudflare memunculkan pemeriksaan, app mencoba ulang beberapa kali
+  jadi FAQ besar pun aman — guide HTML multi-halaman sekalipun). Kalau Cloudflare memunculkan pemeriksaan, app mencoba ulang beberapa kali
   — biasanya lolos sendiri. Kalau tetap gagal (atau ada langkah lain yang macet), **browser kecil
   dalam app terbuka** dengan pesan alasan di atasnya; cari/buka halaman FAQ-nya dan tekan **SALIN**
   di toolbar, teksnya langsung masuk ke app. Tidak ada server dan tidak ada data yang dikirim ke mana
@@ -78,8 +81,9 @@ yang diperbaiki (`tales of vesperia`) — retry itu hanya dipakai kalau hasilnya
 
 Teks FAQ dirender sebagai monospace `pre-wrap` (gambar ASCII dan tabel tetap sejajar, baris panjang
 dibungkus), lalu dipotong per bab lewat deteksi heading (judul berkotak `====`, baris "Chapter N",
-heading KAPITAL). FAQ adalah **karya penulis masing-masing di GameFAQs** (bukan CC BY-SA) — footer
-halaman menandai sumbernya dan selalu menautkan FAQ aslinya.
+heading KAPITAL). Guide HTML dikonversi otomatis ke teks yang sama: tiap bagian daftar isi jadi
+heading KAPITAL, paragraf dan daftar tetap terbaca. FAQ adalah **karya penulis masing-masing di
+GameFAQs** (bukan CC BY-SA) — footer halaman menandai sumbernya dan selalu menautkan FAQ aslinya.
 
 ## Install di Android (APK)
 

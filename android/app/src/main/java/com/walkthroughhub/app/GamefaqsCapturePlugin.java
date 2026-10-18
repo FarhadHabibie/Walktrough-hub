@@ -44,8 +44,12 @@ import java.io.FileInputStream;
 @CapacitorPlugin(name = "GamefaqsCapture")
 public class GamefaqsCapturePlugin extends Plugin {
 
-    /** Whole silent chain budget (search → FAQ list → FAQ page). */
-    private static final long OVERALL_TIMEOUT_MS = 110_000;
+    /**
+     * Whole silent chain budget (search → FAQ list → FAQ → guide sections).
+     * HTML guides can have 100+ section pages to crawl, so the JS side has a
+     * 150 s section deadline; Java waits a bit longer.
+     */
+    private static final long OVERALL_TIMEOUT_MS = 240_000;
 
     /** How many chars of FAQ text to pull per JS-bridge round-trip. */
     private static final int CHUNK_CHARS = 240_000;

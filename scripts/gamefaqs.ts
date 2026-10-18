@@ -51,37 +51,34 @@ export function hasCurl(): Promise<boolean> {
   return curlChecked;
 }
 
-async function gfGet(url: string, jarPath: string): Promise<string> {
-  const { stdout } = await run(
-    "curl",
-    [
-      "-s",
-      "-L",
-      "--compressed",
-      "--max-time",
-      "25",
-      "-c",
-      jarPath,
-      "-b",
-      jarPath,
-      "-A",
-      UA,
-      "-H",
-      "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-      "-H",
-      "Accept-Language: en-US,en;q=0.9",
-      "-H",
-      'sec-ch-ua: "Chromium";v="141", "Not?A_Brand";v="24", "Google Chrome";v="141"',
-      "-H",
-      "sec-ch-ua-mobile: ?0",
-      "-H",
-      'sec-ch-ua-platform: "Windows"',
-      "-w",
-      "\n%{http_code}",
-      url,
-    ],
-    { maxBuffer: 32 * 1024 * 1024, timeout: CURL_TIMEOUT_MS },
+async function gfGet(url: string, jarPath: string, writeJar = true): Promise<string> {
+  const args = ["-s", "-L", "--compressed", "--max-time", "25"];
+  // Parallel guide-section fetches share the jar read-only — concurrent -c
+  // writes would race on the jar file.
+  if (writeJar) args.push("-c", jarPath);
+  args.push(
+    "-b",
+    jarPath,
+    "-A",
+    UA,
+    "-H",
+    "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "-H",
+    "Accept-Language: en-US,en;q=0.9",
+    "-H",
+    'sec-ch-ua: "Chromium";v="141", "Not?A_Brand";v="24", "Google Chrome";v="141"',
+    "-H",
+    "sec-ch-ua-mobile: ?0",
+    "-H",
+    'sec-ch-ua-platform: "Windows"',
+    "-w",
+    "\n%{http_code}",
+    url,
   );
+  const { stdout } = await run("curl", args, {
+    maxBuffer: 32 * 1024 * 1024,
+    timeout: CURL_TIMEOUT_MS,
+  });
 
   const idx = stdout.lastIndexOf("\n");
   const status = Number(stdout.slice(idx + 1).trim());
@@ -264,27 +261,58 @@ function parseGameTitle(html: string): string | null {
 
 export type FaqEntry = { id: string; path: string; title: string; kb: number };
 
+// Sizes read "345K" on the classic table template and "746KB" on the newer
+// guide-card template, so the optional B matters.
+const KB_RE = /(\d+(?:\.\d+)?)K(?:B)?\b/gi;
+
 export function parseFaqsList(html: string): FaqEntry[] {
-  const out: FaqEntry[] = [];
-  const seen = new Set<string>();
-  const rows = html.split(/<tr[\s>]/i);
-  for (const row of rows) {
-    if (!/\/faqs\/\d+/.test(row)) continue;
-    const m = /<a[^>]+href="([^"]*\/faqs\/(\d+))"[^>]*>([\s\S]*?)<\/a>/i.exec(row);
-    if (!m) continue;
-    if (seen.has(m[2])) continue;
-    seen.add(m[2]);
-    const sizes = [...row.matchAll(/(\d+(?:\.\d+)?)K\b/g)].map((x) =>
-      parseFloat(x[1]),
-    );
-    out.push({
-      id: m[2],
+  const out = new Map<string, FaqEntry>();
+  const put = (entry: FaqEntry) => {
+    const cur = out.get(entry.id);
+    if (cur) {
+      entry = {
+        id: entry.id,
+        path: entry.path,
+        title: entry.title.length > cur.title.length ? entry.title : cur.title,
+        kb: Math.max(cur.kb, entry.kb),
+      };
+    }
+    out.set(entry.id, entry);
+  };
+
+  // Classic template: one <tr> per FAQ, size in the same row.
+  if (/<tr[\s>]/i.test(html)) {
+    for (const row of html.split(/<tr[\s>]/i)) {
+      const m = /<a[^>]+href="([^"]*\/faqs\/(\d+))"[^>]*>([\s\S]*?)<\/a>/i.exec(row);
+      if (!m) continue;
+      const sizes = [...row.matchAll(KB_RE)].map((x) => parseFloat(x[1]));
+      put({
+        id: m[2],
+        path: m[1],
+        title: stripTags(m[3]).trim(),
+        kb: sizes.length ? Math.max(...sizes) : 0,
+      });
+    }
+  }
+
+  // Newer template lists guides as <li> cards (no <tr> at all): title link,
+  // then meta text like "v1.01, 746KB, 2022" right after it.
+  const re = /<a[^>]+href="([^"]*\/faqs\/(\d+))"[^>]*>([\s\S]*?)<\/a>/gi;
+  for (const m of html.matchAll(re)) {
+    const id = m[2];
+    if (out.has(id)) continue;
+    const title = stripTags(m[3]).trim();
+    if (!title) continue;
+    const tail = html.slice(m.index, m.index + 600);
+    const sizes = [...tail.matchAll(KB_RE)].map((x) => parseFloat(x[1]));
+    put({
+      id,
       path: m[1],
-      title: stripTags(m[3]).trim(),
+      title,
       kb: sizes.length ? Math.max(...sizes) : 0,
     });
   }
-  return out;
+  return [...out.values()];
 }
 
 /** Walkthroughs beat guides, guides beat loose FAQs; bigger beats smaller. */
@@ -313,6 +341,146 @@ export function parseFaqBody(html: string): string {
     .replace(/\r\n?/g, "\n")
     .replace(/\n{4,}/g, "\n\n\n")
     .trim();
+}
+
+/* ------------------------------------------------------------------ *
+ * HTML guides ("Walkthrough & Guide" pages)
+ *
+ * Newer GameFAQs submissions render as web pages instead of ASCII text
+ * (no <pre>): the body lives in div#faqwrap and each table-of-contents
+ * entry is its own page. Detection is simply "the <pre> pass found
+ * nothing". Larger guides have 100+ section pages, so they are fetched
+ * with small concurrency against a deadline.
+ * ------------------------------------------------------------------ */
+
+const MAX_GUIDE_SECTIONS = 200;
+const GUIDE_CONCURRENCY = 6;
+const GUIDE_DEADLINE_MS = 120_000;
+
+export type GuideSection = { slug: string; title: string };
+
+/** Convert one page's guide body (headings, paragraphs, lists) to plain text. */
+function htmlRegionToText(region: string): string {
+  let s = region
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<li[^>]*>/gi, "\n- ")
+    .replace(/<\/(td|th)>/gi, " | ")
+    .replace(/<(p|h[1-6]|li|tr|ol|ul|table|div|blockquote)\b[^>]*>/gi, "\n")
+    .replace(/<\/(p|h[1-6]|li|tr|ol|ul|table|div|blockquote)>/gi, "\n")
+    .replace(/<[^>]+>/g, "");
+  s = decodeEntities(s);
+  return s
+    .replace(/\r\n?/g, "\n")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/^ *\| ?/gm, "")
+    .replace(/ \| ?\n/g, "\n")
+    .replace(/ *\| *$/gm, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+export function parseHtmlGuide(
+  html: string,
+): { text: string; toc: GuideSection[] } | null {
+  const start = html.search(/<div[^>]*id="faqwrap"[^>]*>/i);
+  if (start < 0) return null;
+  // Body ends where the pager pod ("Next: …") begins.
+  const nav = html.indexOf('<ul class="paginate"', start);
+  let region = html.slice(start, nav > start ? nav : undefined);
+
+  const toc: GuideSection[] = [];
+  const seen = new Set<string>();
+  const ftoc = /<div[^>]*class="ftoc"[^>]*>([\s\S]*?)<\/div>/i.exec(region);
+  if (ftoc) {
+    for (const m of ftoc[1].matchAll(
+      /<a[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi,
+    )) {
+      const slug = m[1];
+      if (!/^[a-z0-9][a-z0-9-]*$/i.test(slug) || seen.has(slug)) continue;
+      seen.add(slug);
+      toc.push({
+        slug,
+        title: stripTags(m[2]).replace(/\s+/g, " ").trim() || slug,
+      });
+    }
+    region = region.replace(/<div[^>]*class="ftoc"[^>]*>[\s\S]*?<\/div>/i, "");
+  }
+  return { text: htmlRegionToText(region), toc };
+}
+
+/** Small parallel map for the section crawl. */
+async function mapLimit<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>,
+): Promise<(R | null)[]> {
+  const out: (R | null)[] = new Array(items.length).fill(null);
+  let next = 0;
+  const workers = Array.from(
+    { length: Math.max(1, Math.min(limit, items.length)) },
+    async () => {
+      for (;;) {
+        const i = next++;
+        if (i >= items.length) return;
+        out[i] = await fn(items[i]);
+      }
+    },
+  );
+  await Promise.all(workers);
+  return out;
+}
+
+/** Drop the section's own heading line when it repeats the TOC label. */
+function stripDupTitle(body: string, title: string): string {
+  const nl = body.indexOf("\n");
+  const first = (nl < 0 ? body : body.slice(0, nl)).trim().toLowerCase();
+  if (first !== title.replace(/\s+/g, " ").trim().toLowerCase()) return body;
+  return body.slice(nl < 0 ? body.length : nl).replace(/^\n+/, "");
+}
+
+/**
+ * Text of one picked FAQ. Classic ASCII pages pass through unchanged; HTML
+ * guides get converted, and paginated guides get every TOC section fetched
+ * and joined so the import is the complete guide, not just its first page.
+ */
+async function faqText(pick: FaqEntry, faqHtml: string, jar: string): Promise<string> {
+  const preText = parseFaqBody(faqHtml);
+  if (preText.length >= 800) return preText;
+  const guide = parseHtmlGuide(faqHtml);
+  if (!guide || guide.text.length < 300) return preText;
+  if (guide.toc.length === 0 || guide.toc.length > MAX_GUIDE_SECTIONS) {
+    return guide.text;
+  }
+
+  const base = `${ORIGIN}${pick.path.replace(/\/+$/, "")}`;
+  const deadline = Date.now() + GUIDE_DEADLINE_MS;
+  const pages = await mapLimit(guide.toc, GUIDE_CONCURRENCY, async (sec) => {
+    if (Date.now() > deadline) return null;
+    try {
+      const secHtml = await gfGet(`${base}/${sec.slug}`, jar, false);
+      const parsed = parseHtmlGuide(secHtml);
+      return parsed && parsed.text ? { ...sec, text: parsed.text } : null;
+    } catch {
+      return null;
+    }
+  });
+  const ok = pages.filter(
+    (p): p is GuideSection & { text: string } => p !== null,
+  );
+  // A few flaky sections are tolerable; a mostly-empty crawl is not.
+  const enough = pages.every((p) => p !== null)
+    ? ok.length >= Math.max(1, Math.floor(guide.toc.length * 0.7))
+    : ok.length >= 8;
+  if (!enough) return guide.text;
+  return ok
+    .map(
+      (p) =>
+        `${p.title.slice(0, 80).toUpperCase()}\n\n${stripDupTitle(p.text, p.title)}`,
+    )
+    .join("\n\n\n");
 }
 
 /* ------------------------------------------------------------------ *
@@ -366,7 +534,7 @@ export async function fetchGamefaq(query: string): Promise<FaqPayload> {
     if (!pick) throw new Error("game ini tidak punya FAQ di GameFAQs");
 
     const faqHtml = await gfGet(`${ORIGIN}${pick.path}`, jar);
-    const text = parseFaqBody(faqHtml);
+    const text = await faqText(pick, faqHtml, jar);
     if (text.length < 800) throw new Error("FAQ kosong atau gagal diambil");
 
     // "Pokemon Ruby Version - Guide and Walkthrough - GBA - By author - GameFAQs"
