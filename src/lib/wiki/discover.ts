@@ -396,32 +396,40 @@ export type AltWalkthrough = { hit: WikiHit; target: WalkthroughTarget };
 export async function findFextralifeTarget(
   title: string,
 ): Promise<AltWalkthrough | null> {
-  for (const sub of fextralifeSubdomains(title)) {
-    try {
-      const api = `https://${sub}.wiki.fextralife.com/api.php`;
-      const client = makeWikiClient(api);
-      const exists = await client.existingPages(["Game Progress Route"]);
-      if (!exists.has("Game Progress Route")) continue;
+  // Probing the candidate hosts sequentially adds up (each is 1–2 API calls),
+  // so they all run at once; the first hit in curated order still wins.
+  const probes = fextralifeSubdomains(title).map(
+    async (sub): Promise<AltWalkthrough | null> => {
+      try {
+        const api = `https://${sub}.wiki.fextralife.com/api.php`;
+        const client = makeWikiClient(api);
+        const exists = await client.existingPages(["Game Progress Route"]);
+        if (!exists.has("Game Progress Route")) return null;
 
-      const page = bestHit(await client.searchTitles(title, 6), title);
-      return {
-        hit: {
-          api,
-          origin: client.origin,
-          wikiName: new URL(api).hostname,
-          score: 0,
-          matchedTitle: page ?? title,
-        },
-        target: {
-          pages: ["Game Progress Route"],
-          matchedTitle: "Game Progress Route",
-          kind: "walkthrough",
-          splitLevels: [1, 2, 3],
-        },
-      };
-    } catch {
-      // try the next candidate
-    }
+        const page = bestHit(await client.searchTitles(title, 6), title);
+        return {
+          hit: {
+            api,
+            origin: client.origin,
+            wikiName: new URL(api).hostname,
+            score: 0,
+            matchedTitle: page ?? title,
+          },
+          target: {
+            pages: ["Game Progress Route"],
+            matchedTitle: "Game Progress Route",
+            kind: "walkthrough" as const,
+            splitLevels: [1, 2, 3],
+          },
+        };
+      } catch {
+        return null;
+      }
+    },
+  );
+  const settled = await Promise.allSettled(probes);
+  for (const result of settled) {
+    if (result.status === "fulfilled" && result.value) return result.value;
   }
   return null;
 }
@@ -465,10 +473,17 @@ async function strategyTargetForRoot(
   if (!exists.has(tocTitle)) return null;
 
   const toc = await client.fetchPage(tocTitle);
-  const pages = extractSubpageLinks(toc.html, root).slice(
+  const links = extractSubpageLinks(toc.html, root).slice(
     0,
     STRATEGYWIKI_MAX_PAGES,
   );
+  if (links.length < STRATEGYWIKI_MIN_PAGES) return null;
+
+  // Many tables of contents list chapters that were never written — a
+  // skeleton guide must not pass the gate on unwritten pages, so keep only
+  // the ones that actually exist.
+  const live = await client.existingPages(links);
+  const pages = links.filter((p) => live.has(p));
   if (pages.length < STRATEGYWIKI_MIN_PAGES) return null;
 
   return {

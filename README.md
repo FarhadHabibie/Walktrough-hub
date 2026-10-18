@@ -9,6 +9,7 @@ Konten diambil dari wiki publik (Fandom, wiki.gg, Fextralife, StrategyWiki, dll 
 - 🧭 Satu halaman utuh — sidebar navigasi + scrollspy per bagian
 - ✅ Progress baca per-bagian (tanpa akun)
 - 🔎 Pencarian instan di katalog lokal — plus **“Ambil dari wiki publik”** untuk game apa pun yang belum ada
+- 📚 **Sumber paling lengkap** — saat mengambil game baru, beberapa sumber (wiki utama + artikelnya, Fextralife, StrategyWiki) diambil dan dibandingkan otomatis; yang isinya paling lengkap yang dipakai, jadi walkthrough tipis/summary tidak menang kalau ada yang lebih utuh
 - 🎮 **Pilih platform** — saat menambah game maupun kapan saja di halaman game; kalau wiki sumber punya panduan khusus versi itu (mis. *Tetris DS*), yang diambil panduan versi tersebut
 - 🕹️ **Nuansa retro CRT** — judul & angka pakai font pixel (Silkscreen), sudut siku, hard shadow, progress bar tersegmentasi, dan scanline halus ala monitor CRT; teks isi tetap Geist supaya enak dibaca
 - 📱 Jalan sebagai web di desktop **dan** sebagai **APK Android standalone** (Capacitor)
@@ -29,7 +30,9 @@ npm start            # http://localhost:3765  (ganti port: npm start -- -p 8080)
 
 ## Katalog awal
 
-Repo ini menyertakan katalog lama (**16 game**, hasil scrape awal) di `public/seed/catalog.json`. Saat pertama kali dibuka, aplikasi mengimpor katalog itu ke penyimpanan lokal satu kali. Game lain diambil on-demand lewat pencarian.
+Repo ini menyertakan katalog bawaan (**16 game** lengkap) di `public/seed/catalog.json`. Saat pertama kali dibuka, aplikasi mengimpor katalog itu ke penyimpanan lokal satu kali. Game lain diambil on-demand lewat pencarian.
+
+Katalog punya nomor versi (`public/seed/version.json` + `version` di dalam catalog.json). Kalau app versi baru membawa katalog yang lebih baru (versinya naik — mis. setelah walkthrough seed diambil ulang supaya lebih lengkap), app yang sudah terinstal **menyegarkan konten game seed yang masih ada** secara otomatis saat dibuka: progres baca, label platform, dan game yang sudah kamu hapus tidak disentuh.
 
 ## Ambil game langsung dari web
 
@@ -37,8 +40,8 @@ Di kolom pencarian, ketik nama game yang belum ada di katalog → muncul baris
 **“Ambil dari wiki publik”**. Pilih itu (atau tekan Enter) → pilih **platform yang kamu mainkan** (opsional; ada juga "Semua platform"), dan app akan:
 
 1. Mencari wiki utama (peta kurasi untuk game populer + tebakan domain `namagame.fandom.com` / `namagame.wiki.gg`), memverifikasi ke API wiki aslinya, lalu mengambil halaman walkthrough khususnya (`Walkthrough`, `Guide`, hub misi) — atau artikel game-nya kalau memang tidak ada.
-2. Kalau hasilnya cuma artikel tipis (atau wiki-nya tidak ketemu), app lanjut ke sumber yang isinya memang walkthrough: **Fextralife** (halaman standar *"Game Progress Route"* — walkthrough terurut per area, mis. Dark Souls III & Bloodborne) lalu **StrategyWiki** (panduan multi-halaman lewat *"Table of Contents"* — semua chapter dimuat sekaligus sebagai grup, mis. Chrono Trigger & Zelda: A Link to the Past).
-3. Hasil yang paling kuat (paling lengkap) yang dipakai, dibersihkan lewat `htmlclean`, dan disimpan ke penyimpanan lokal — jadi kunjungan berikutnya instan, dan game itu otomatis masuk katalog + pencarian.
+2. Mengumpulkan **semua** kandidat yang ada sekaligus (diparalel): artikel wiki primer itu sendiri (dipakai kalau halaman walkthrough di sana cuma daftar tipis, mis. halaman *Quests* 372 karakter), **Fextralife** (halaman standar *"Game Progress Route"* — walkthrough terurut per area, mis. Dark Souls III & Bloodborne), dan **StrategyWiki** (panduan multi-halaman lewat *"Table of Contents"* — semua chapter dimuat sekaligus sebagai grup, mis. Chrono Trigger & Stardew Valley; TOC yang isinya cuma kerangka/red link ditolak).
+3. Membandingkan semua kandidat dan memakai **yang paling lengkap**: walkthrough utuh (≥ 4.000 karakter) menang atas artikel biasa; kalau tidak ada yang utuh, halaman terpanjang yang dipakai. Hasilnya dibersihkan lewat `htmlclean`, disimpan ke penyimpanan lokal — jadi kunjungan berikutnya instan, dan game itu otomatis masuk katalog + pencarian.
 
 Platform yang kamu pilih disimpan sebagai label (tampil di kartu katalog + header halaman game) **dan** dipakai untuk mengarahkan sumber: di StrategyWiki, kalau game punya panduan terpisah untuk versi itu (mis. *Tetris DS* vs *Tetris*), panduan versi tersebut yang diambil. Kalau tidak ada, panduan utama game-nya yang dipakai — labelnya tetap tersimpan. Platform bisa diganti kapan saja lewat chip kecil di bawah judul game (mengganti label; untuk mengganti sumbernya, hapus lalu tambah ulang dengan platform yang benar).
 
@@ -81,6 +84,7 @@ src/
   components/             # SearchBox, SidebarNav, dll
 scripts/serve.ts          # static server desktop (npm start)
 public/seed/catalog.json  # katalog awal (diimpor otomatis saat pertama buka)
+public/seed/version.json  # stempel versi katalog → memicu refresh konten seed saat app di-update
 android/                  # project Capacitor Android
 assets/                   # sumber ikon + splash APK
 capacitor.config.ts       # konfigurasi Android (webDir: out)

@@ -267,7 +267,15 @@ export async function deleteGame(slug: string): Promise<boolean> {
  * First-run seed (the catalog from the old server build, exported once
  * to public/seed/catalog.json). Imported only on the very first launch —
  * deletions afterwards are respected, the flag prevents resurrection.
+ *
+ * Later app builds ship an updated catalog with a higher `version`; a small
+ * version stamp next to it (public/seed/version.json) tells an installed app
+ * that fresher seed content is available, and the seed games still present
+ * get their walkthroughs refreshed in place — without touching progress,
+ * platform labels or deletions.
  * ------------------------------------------------------------------ */
+
+const SEED_VERSION_URL = "seed/version.json";
 
 type SeedSection = {
   ord: number;
@@ -296,67 +304,162 @@ type SeedGame = {
 
 type SeedFile = { version: number; games?: SeedGame[] };
 
-export async function ensureSeeded(): Promise<void> {
-  const db = await openDb();
-  const metaStore = db.transaction("meta", "readonly").objectStore("meta");
-  const flag = await reqToPromise(
-    metaStore.get("seed-import") as IDBRequest<{ key: string; done?: boolean } | undefined>,
-  );
-  if (flag?.done) return;
+type SeedMeta = { key: string; done?: boolean; version?: number };
 
-  let imported = false;
+async function readSeedMeta(): Promise<SeedMeta | undefined> {
+  const db = await openDb();
+  const store = db.transaction("meta", "readonly").objectStore("meta");
+  return reqToPromise(
+    store.get("seed-import") as IDBRequest<SeedMeta | undefined>,
+  );
+}
+
+async function fetchSeedCatalog(): Promise<SeedFile | null> {
   try {
     const res = await fetch(SEED_URL, { cache: "no-cache" });
-    if (res.ok) {
-      const data = (await res.json()) as SeedFile;
-      const tx = db.transaction(["games", "sections", "meta"], "readwrite");
-      const gamesStore = tx.objectStore("games");
-      const sectionsStore = tx.objectStore("sections");
-      const count = await reqToPromise(gamesStore.count());
-      if (count === 0) {
-        const now = new Date().toISOString();
-        for (const g of data.games ?? []) {
-          const sections = g.sections ?? [];
-          const record: Game = {
-            slug: g.slug,
-            title: g.title,
-            platform: g.platform ?? null,
-            year: g.year ?? null,
-            cover_url: g.cover_url ?? null,
-            description: g.description ?? null,
-            wiki_name: g.wiki_name ?? null,
-            source_url: g.source_url ?? null,
-            created_at: g.created_at ?? now,
-            updated_at: g.updated_at ?? now,
-            section_count: sections.length,
-            group_count: new Set(
-              sections.map((s) => s.group_title).filter(Boolean),
-            ).size,
-          };
-          gamesStore.put(record);
-          for (const s of sections) {
-            const section: Omit<SectionRow, "id"> = {
-              game_slug: g.slug,
-              ord: s.ord,
-              group_title: s.group_title ?? null,
-              level: s.level ?? 2,
-              title: s.title,
-              anchor: s.anchor,
-              content_html: s.content_html,
-              content_text: s.content_text ?? "",
-              source_url: s.source_url ?? null,
-            };
-            sectionsStore.add(section);
-          }
-        }
-      }
-      tx.objectStore("meta").put({ key: "seed-import", done: true, at: Date.now() });
-      await txDone(tx);
-      imported = true;
-      emit();
-    }
+    if (!res.ok) return null;
+    return (await res.json()) as SeedFile;
   } catch {
     // offline or missing seed — retry on the next launch
+    return null;
   }
-  void imported;
+}
+
+async function fetchSeedVersion(): Promise<number | null> {
+  try {
+    const res = await fetch(SEED_VERSION_URL, { cache: "no-cache" });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { version?: number };
+    return typeof data.version === "number" ? data.version : null;
+  } catch {
+    return null;
+  }
+}
+
+function seedSectionRecord(
+  gameSlug: string,
+  s: SeedSection,
+): Omit<SectionRow, "id"> {
+  return {
+    game_slug: gameSlug,
+    ord: s.ord,
+    group_title: s.group_title ?? null,
+    level: s.level ?? 2,
+    title: s.title,
+    anchor: s.anchor,
+    content_html: s.content_html,
+    content_text: s.content_text ?? "",
+    source_url: s.source_url ?? null,
+  };
+}
+
+function groupCountOf(sections: SeedSection[]): number {
+  return new Set(sections.map((s) => s.group_title).filter(Boolean)).size;
+}
+
+/** First launch: import the shipped catalog into an empty database. */
+async function importSeedCatalog(data: SeedFile): Promise<void> {
+  const db = await openDb();
+  const tx = db.transaction(["games", "sections", "meta"], "readwrite");
+  const gamesStore = tx.objectStore("games");
+  const sectionsStore = tx.objectStore("sections");
+  const count = await reqToPromise(gamesStore.count());
+  if (count === 0) {
+    const now = new Date().toISOString();
+    for (const g of data.games ?? []) {
+      const sections = g.sections ?? [];
+      const record: Game = {
+        slug: g.slug,
+        title: g.title,
+        platform: g.platform ?? null,
+        year: g.year ?? null,
+        cover_url: g.cover_url ?? null,
+        description: g.description ?? null,
+        wiki_name: g.wiki_name ?? null,
+        source_url: g.source_url ?? null,
+        created_at: g.created_at ?? now,
+        updated_at: g.updated_at ?? now,
+        section_count: sections.length,
+        group_count: groupCountOf(sections),
+      };
+      gamesStore.put(record);
+      for (const s of sections) sectionsStore.add(seedSectionRecord(g.slug, s));
+    }
+  }
+  tx.objectStore("meta").put({
+    key: "seed-import",
+    done: true,
+    version: data.version,
+    at: Date.now(),
+  });
+  await txDone(tx);
+  emit();
+}
+
+/** Upgrade path: refresh the content of the seed games that are still
+ *  installed. Platform labels and creation dates are user-owned — they stay
+ *  as they are — and games the user deleted are not resurrected. */
+async function refreshSeedCatalog(data: SeedFile): Promise<void> {
+  const db = await openDb();
+  const tx = db.transaction(["games", "sections", "meta"], "readwrite");
+  const gamesStore = tx.objectStore("games");
+  const sectionsStore = tx.objectStore("sections");
+  const now = new Date().toISOString();
+
+  for (const g of data.games ?? []) {
+    const existing = await reqToPromise(
+      gamesStore.get(g.slug) as IDBRequest<Game | undefined>,
+    );
+    if (!existing) continue;
+
+    const keys = await reqToPromise(
+      sectionsStore.index("by_game").getAllKeys(g.slug) as IDBRequest<
+        IDBValidKey[]
+      >,
+    );
+    for (const key of keys) sectionsStore.delete(key);
+    const sections = g.sections ?? [];
+    for (const s of sections) sectionsStore.add(seedSectionRecord(g.slug, s));
+
+    const record: Game = {
+      ...existing,
+      title: g.title,
+      year: g.year ?? null,
+      cover_url: g.cover_url ?? null,
+      description: g.description ?? null,
+      wiki_name: g.wiki_name ?? null,
+      source_url: g.source_url ?? null,
+      updated_at: now,
+      section_count: sections.length,
+      group_count: groupCountOf(sections),
+    };
+    gamesStore.put(record);
+  }
+
+  tx.objectStore("meta").put({
+    key: "seed-import",
+    done: true,
+    version: data.version,
+    at: Date.now(),
+  });
+  await txDone(tx);
+  emit();
+}
+
+export async function ensureSeeded(): Promise<void> {
+  const flag = await readSeedMeta();
+
+  if (!flag?.done) {
+    const data = await fetchSeedCatalog();
+    if (data) await importSeedCatalog(data);
+    return;
+  }
+
+  // A small version stamp shipped next to the catalog decides whether this
+  // build's seed content is newer than what the device already has.
+  const version = await fetchSeedVersion();
+  const known = flag.version ?? 1;
+  if (version === null || version <= known) return;
+  const data = await fetchSeedCatalog();
+  if (data && data.version > known) await refreshSeedCatalog(data);
 }

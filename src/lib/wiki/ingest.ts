@@ -2,12 +2,23 @@
  * On-demand walkthrough ingestion.
  *
  * Called by the game page when a slug is not in the database yet: discovers
- * the best public source for the game, scrapes + cleans the walkthrough, and
- * stores it in SQLite so the next visit is instant.
+ * the most complete public source for the game, scrapes + cleans it, and
+ * stores it in IndexedDB so the next visit is instant.
  *
- * Sources: primary wiki discovery (Fandom / wiki.gg / ...) first; when that
- * only yields a general article, a stub, or nothing, the walkthrough-first
- * sources kick in (Fextralife "Game Progress Route", StrategyWiki guides).
+ * Several sources can carry content for the same game, so they are all
+ * collected (in parallel where possible) and then compared:
+ *
+ *  1. The primary wiki from discovery (Fandom / wiki.gg / ...): a dedicated
+ *     walkthrough page when there is one — plus, when that pick is thin, the
+ *     wiki's own game article, so that a bare "Quests" listing cannot hide a
+ *     full article behind it.
+ *  2. Fextralife's standardized "Game Progress Route", when the game has a
+ *     wiki there.
+ *  3. StrategyWiki's "<Game>/Table of Contents" multi-page guide, when the
+ *     guide is substantial enough.
+ *
+ * The most complete candidate wins: the largest real walkthrough; when none
+ * of them is substantial, the largest page of any kind.
  *
  * In-flight requests for the same slug share one promise, and failures are
  * negatively cached for a short while so a typo'd URL doesn't hammer wikis
@@ -26,17 +37,17 @@ import {
   findFextralifeTarget,
   findStrategyWikiTarget,
   findWalkthroughTarget,
+  type AltWalkthrough,
   type WalkthroughTarget,
+  type WikiHit,
 } from "./discover.ts";
 
 const NEGATIVE_TTL_MS = 10 * 60 * 1000;
 
-/** A walkthrough page needs at least this much text before we skip the
- *  secondary walkthrough sources entirely. */
-const SOLID_TEXT_CHARS = 12_000;
-/** A secondary source only replaces a primary result once it carries real
- *  content on its own. */
-const MIN_ALT_TEXT_CHARS = 4_000;
+/** A walkthrough needs at least this much text before it can outrank an
+ *  overview article in the source comparison — and before it counts as a
+ *  "real" walkthrough at all. */
+const MIN_SOLID_TEXT_CHARS = 4_000;
 /** Pages fetched in parallel for multi-page guides. */
 const FETCH_CONCURRENCY = 6;
 
@@ -91,6 +102,47 @@ async function fetchSections(
   return sections;
 }
 
+/* ------------------------------------------------------------------ *
+ * Source candidates
+ * ------------------------------------------------------------------ */
+
+/** Where a candidate came from; "primary" is the wiki-discovery pick. */
+type CandidateSource =
+  | "primary"
+  | "primary-article"
+  | "fextralife"
+  | "strategywiki";
+
+type Candidate = {
+  source: CandidateSource;
+  wiki: WikiHit;
+  client: WikiClient;
+  target: WalkthroughTarget;
+  sections: CleanSection[];
+};
+
+function toCandidate(
+  source: CandidateSource,
+  wiki: WikiHit,
+  client: WikiClient,
+  target: WalkthroughTarget,
+  sections: CleanSection[],
+): Candidate | null {
+  return sections.length > 0 ? { source, wiki, client, target, sections } : null;
+}
+
+/** Fetch one secondary source (Fextralife / StrategyWiki) into a candidate. */
+async function altCandidate(
+  source: CandidateSource,
+  find: () => Promise<AltWalkthrough | null>,
+): Promise<Candidate | null> {
+  const alt = await find();
+  if (!alt) return null;
+  const client = makeWikiClient(alt.hit.api);
+  const sections = await fetchSections(client, alt.target);
+  return toCandidate(source, alt.hit, client, alt.target, sections);
+}
+
 async function runIngest(
   slug: string,
   titleHint?: string,
@@ -102,85 +154,121 @@ async function runIngest(
   const platform = platformHint?.trim() ? platformHint.trim() : null;
 
   // Phase 1 — the primary wiki network (Fandom, wiki.gg, ...).
-  let wiki = await findBestWiki(title);
-  let client = wiki ? makeWikiClient(wiki.api) : null;
-  let target: WalkthroughTarget | null = null;
-  let sections: CleanSection[] = [];
-  if (wiki && client) {
-    target = await findWalkthroughTarget(client, wiki.matchedTitle);
-    if (target) sections = await fetchSections(client, target);
+  const wiki = await findBestWiki(title);
+  const primaryClient = wiki ? makeWikiClient(wiki.api) : null;
+  const primaryTarget =
+    wiki && primaryClient
+      ? await findWalkthroughTarget(primaryClient, wiki.matchedTitle)
+      : null;
+  const primarySections =
+    primaryClient && primaryTarget
+      ? await fetchSections(primaryClient, primaryTarget)
+      : [];
+  const primaryChars = totalText(primarySections);
+  const primarySolid =
+    primaryTarget?.kind === "walkthrough" &&
+    primaryChars >= MIN_SOLID_TEXT_CHARS;
+
+  // Phase 2 — every other source, in parallel. The primary wiki's own game
+  // article only joins when the walkthrough-ish pick there is thin: a solid
+  // walkthrough always beats an overview article, so it could never win.
+  const jobs: Array<Promise<Candidate | null>> = [];
+  if (
+    wiki &&
+    primaryClient &&
+    primaryTarget &&
+    !primarySolid &&
+    primaryTarget.matchedTitle !== wiki.matchedTitle
+  ) {
+    const article: WalkthroughTarget = {
+      pages: [wiki.matchedTitle],
+      matchedTitle: wiki.matchedTitle,
+      kind: "article",
+    };
+    jobs.push(
+      fetchSections(primaryClient, article).then((sections) =>
+        toCandidate("primary-article", wiki, primaryClient, article, sections),
+      ),
+    );
   }
+  jobs.push(altCandidate("fextralife", () => findFextralifeTarget(title)));
+  jobs.push(
+    altCandidate("strategywiki", () => findStrategyWikiTarget(title, platform)),
+  );
+  const settled = await Promise.allSettled(jobs);
 
-  const primaryKind = target?.kind ?? null;
-  const primaryChars = totalText(sections);
-
-  // Phase 2 — when the primary source only had an article, a stub page, or
-  // nothing at all, try the walkthrough-first sources and keep whichever
-  // result actually helps the reader most.
-  let coverFallback: { client: WikiClient; page: string } | null = null;
-  const skipAlts =
-    sections.length > 0 &&
-    primaryKind === "walkthrough" &&
-    primaryChars >= SOLID_TEXT_CHARS;
-  if (!skipAlts) {
-    const alt =
-      (await findFextralifeTarget(title)) ??
-      (await findStrategyWikiTarget(title, platform));
-    if (alt) {
-      const altClient = makeWikiClient(alt.hit.api);
-      const altSections = await fetchSections(altClient, alt.target);
-      const altChars = totalText(altSections);
-      const havePrimary = sections.length > 0;
-      const preferAlt =
-        altSections.length > 0 &&
-        (!havePrimary ||
-          (primaryKind === "article" && altChars >= MIN_ALT_TEXT_CHARS) ||
-          (primaryKind === "walkthrough" && altChars > primaryChars * 1.2));
-      if (preferAlt) {
-        // Keep the primary wiki's page around: Fandom box art beats anything
-        // the secondary source can offer as a cover.
-        if (wiki && client) coverFallback = { client, page: wiki.matchedTitle };
-        wiki = alt.hit;
-        client = altClient;
-        target = alt.target;
-        sections = altSections;
-      }
+  const candidates: Candidate[] = [];
+  if (wiki && primaryClient && primaryTarget) {
+    const primary = toCandidate(
+      "primary",
+      wiki,
+      primaryClient,
+      primaryTarget,
+      primarySections,
+    );
+    if (primary) candidates.push(primary);
+  }
+  for (const result of settled) {
+    if (result.status === "fulfilled" && result.value) {
+      candidates.push(result.value);
     }
   }
-
-  if (!wiki || !client || !target || sections.length === 0) {
+  if (candidates.length === 0) {
     negative.set(slug, Date.now() + NEGATIVE_TTL_MS);
     return null;
   }
 
-  // Cover: prefer the game article on the primary wiki, then — except on
-  // Fextralife, whose pages only expose item icons and UI buttons — the
-  // source wiki's article, main page and walkthrough page; finally the first
-  // image inside the cleaned sections.
-  const isFextralife = wiki.wikiName.endsWith("wiki.fextralife.com");
+  // The most complete source wins: the largest solid walkthrough; when none
+  // is substantial, the largest page of any kind. Ties keep the earlier
+  // candidate (the primary wiki first).
+  const solid = candidates.filter(
+    (c) =>
+      c.target.kind === "walkthrough" &&
+      totalText(c.sections) >= MIN_SOLID_TEXT_CHARS,
+  );
+  const pool = solid.length > 0 ? solid : candidates;
+  let winner = pool[0];
+  for (const c of pool) {
+    if (totalText(c.sections) > totalText(winner.sections)) winner = c;
+  }
+
+  const { wiki: chosenWiki, client: chosenClient, target, sections } = winner;
+
+  // Cover: when a secondary source supplies the text, the primary wiki's
+  // article still provides the box art — then, except on Fextralife (whose
+  // pages only expose item icons and UI buttons), the winning wiki's article,
+  // main page and walkthrough page; finally the first image inside the
+  // cleaned sections.
+  const coverFallback =
+    (winner.source === "fextralife" || winner.source === "strategywiki") &&
+    wiki &&
+    primaryClient
+      ? { client: primaryClient, page: wiki.matchedTitle }
+      : null;
+  const isFextralife = chosenWiki.wikiName.endsWith("wiki.fextralife.com");
   let cover: string | null = null;
   if (coverFallback) {
     cover = await coverFallback.client.fetchCover(coverFallback.page);
   }
   if (!cover && !isFextralife) {
-    cover = await client.fetchCover(wiki.matchedTitle);
+    cover = await chosenClient.fetchCover(chosenWiki.matchedTitle);
     if (!cover) {
-      const main = await client.mainPage();
-      if (main && main !== wiki.matchedTitle) {
-        cover = await client.fetchCover(main);
+      const main = await chosenClient.mainPage();
+      if (main && main !== chosenWiki.matchedTitle) {
+        cover = await chosenClient.fetchCover(main);
       }
     }
-    if (!cover) cover = await client.fetchCover(target.pages[0]);
+    if (!cover) cover = await chosenClient.fetchCover(target.pages[0]);
   }
   if (!cover && !isFextralife && sections[0]) {
     const m = /<img[^>]+src="([^"]+)"/i.exec(sections[0].html);
     cover = m?.[1] ?? null;
   }
   // Fextralife pages end with " Wiki" ("Elden Ring Wiki") — trim for display.
-  const cleanedTitle = wiki.matchedTitle.replace(/\s*wiki$/i, "").trim();
+  const cleanedTitle = chosenWiki.matchedTitle.replace(/\s*wiki$/i, "").trim();
   const displayTitle = cleanedTitle.length >= 2 ? cleanedTitle : title;
   const sourcePage = target.sourcePage ?? target.pages[0];
-  const sourceUrl = `${client.origin}/wiki/${encodeURIComponent(
+  const sourceUrl = `${chosenClient.origin}/wiki/${encodeURIComponent(
     sourcePage.replace(/ /g, "_"),
   )}`;
 
@@ -192,9 +280,9 @@ async function runIngest(
     coverUrl: cover,
     description:
       target.kind === "walkthrough"
-        ? `${target.pages.length > 1 ? "Panduan lengkap" : "Walkthrough"} dari ${wiki.wikiName}, diambil otomatis dari halaman “${target.matchedTitle}”.`
-        : `Panduan dari ${wiki.wikiName} (wiki ini belum punya halaman walkthrough khusus), diambil otomatis dari artikel “${target.matchedTitle}”.`,
-    wikiName: wiki.wikiName,
+        ? `${target.pages.length > 1 ? "Panduan lengkap" : "Walkthrough"} dari ${chosenWiki.wikiName}, diambil otomatis dari halaman “${target.matchedTitle}”.`
+        : `Panduan dari ${chosenWiki.wikiName} (wiki ini belum punya halaman walkthrough khusus), diambil otomatis dari artikel “${target.matchedTitle}”.`,
+    wikiName: chosenWiki.wikiName,
     sourceUrl,
   });
   await replaceSections(slug, sections);
