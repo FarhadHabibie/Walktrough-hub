@@ -37,12 +37,13 @@ async function run(slug: string, titleHint?: string): Promise<Game | null> {
   let payload: FaqPayload | null = null;
   try {
     payload = await fetchFaqBest(query);
-  } catch {
+  } catch (err) {
     if (!isNative()) return null;
     // Android: the invisible fetch failed (e.g. a Cloudflare check) — open
     // the in-app browser so the page can be solved/captured by hand.
     try {
-      payload = await fetchFaqCapture(query);
+      const reason = err instanceof Error ? err.message : String(err);
+      payload = await fetchFaqCapture(query, reason);
     } catch {
       return null;
     }

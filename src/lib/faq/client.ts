@@ -23,7 +23,7 @@ export type FaqPayload = {
 type NativeCapture = {
   available(): Promise<{ ok: boolean }>;
   fetchBest(options: { query: string }): Promise<FaqPayload>;
-  openCapture(options: { query: string }): Promise<FaqPayload>;
+  openCapture(options: { query: string; reason?: string }): Promise<FaqPayload>;
 };
 
 const Native = registerPlugin<NativeCapture>("GamefaqsCapture");
@@ -79,7 +79,10 @@ export async function fetchFaqBest(query: string): Promise<FaqPayload> {
 }
 
 /** Android only: open the in-app GameFAQs browser for manual capture. */
-export async function fetchFaqCapture(query: string): Promise<FaqPayload> {
+export async function fetchFaqCapture(
+  query: string,
+  reason?: string,
+): Promise<FaqPayload> {
   if (!isNative()) throw new Error("capture hanya tersedia di aplikasi Android");
-  return await Native.openCapture({ query });
+  return await Native.openCapture({ query, reason });
 }

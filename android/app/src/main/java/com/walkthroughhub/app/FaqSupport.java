@@ -6,25 +6,60 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.net.URLEncoder;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Shared helpers for the GameFAQs capture feature: URL encoding, the JS
  * snippets that run inside the WebView, and the JS-result → JSON plumbing.
+ *
+ * IMPORTANT — client hints: gamefaqs.gamespot.com serves an EMPTY search
+ * result page (and 403s deeper pages) when the request carries no sec-ch-ua
+ * client hints. The server-side fetcher (scripts/gamefaqs.ts) sends them and
+ * works; Android's WebView never sends them on its own, so every navigation
+ * must go through `headers(…)` in loadUrl() — without them the chain
+ * silently finds nothing.
  */
 final class FaqSupport {
 
     static final String ORIGIN = "https://gamefaqs.gamespot.com";
 
     /**
-     * A normal mobile Chrome UA — WebView's default ("…; wv)") tends to get
-     * challenged by Cloudflare, and this is the user's own browser on their
-     * own network, so it should be indistinguishable from visiting the site.
+     * The hidden chain pretends to be the same desktop Chrome as the server
+     * fetcher — UA and client hints must agree with each other.
      */
+    static final String DESKTOP_UA =
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) " +
+        "Chrome/141.0.0.0 Safari/537.36";
+
+    /** The visible in-app browser uses a matching mobile profile. */
     static final String MOBILE_UA =
         "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) " +
         "Chrome/141.0.0.0 Mobile Safari/537.36";
 
+    private static final String CHROME_BRANDS =
+        "\"Chromium\";v=\"141\", \"Not?A_Brand\";v=\"24\", \"Google Chrome\";v=\"141\"";
+
     private FaqSupport() {}
+
+    /**
+     * Headers for loadUrl(). The sec-ch-ua* hints are the make-or-break part
+     * (see class comment); Accept-Language keeps pages in English.
+     */
+    static Map<String, String> headers(boolean desktop) {
+        Map<String, String> h = new HashMap<>();
+        h.put("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
+        h.put("Accept-Language", "en-US,en;q=0.9");
+        h.put("sec-ch-ua", CHROME_BRANDS);
+        if (desktop) {
+            h.put("sec-ch-ua-mobile", "?0");
+            h.put("sec-ch-ua-platform", "\"Windows\"");
+        } else {
+            h.put("sec-ch-ua-mobile", "?1");
+            h.put("sec-ch-ua-platform", "\"Android\"");
+        }
+        return h;
+    }
 
     static String encode(String s) {
         try {
@@ -39,15 +74,17 @@ final class FaqSupport {
         String q = JSONObject.quote(query);
         return "(() => {" +
             "const title = document.title || '';" +
-            "if (/just a moment|attention required/i.test(title)) return { challenge: true };" +
+            "if (/just a moment|attention required|access denied/i.test(title)) return { challenge: true };" +
             "const tokens = " + q + ".toLowerCase().split(/[^a-z0-9]+/).filter(t => t.length >= 3);" +
             "const map = new Map();" +
             "document.querySelectorAll('a[href]').forEach(a => {" +
-            "  const href = a.getAttribute('href') || '';" +
+            "  let href = a.getAttribute('href') || '';" +
+            "  if (href.startsWith('http')) { try { href = new URL(href).pathname; } catch (e) {} }" +
+            "  href = href.replace(/[?#].*$/, '');" +
             "  if (!/^\\/[a-z0-9-]+\\/\\d+-[a-z0-9-]+$/.test(href)) return;" +
             "  if (/^\\/(boards|user|my|search|features|forums)\\//.test(href)) return;" +
-            "  const rowAttr = a.getAttribute('data-row') || '';" +
-            "  const row = /^\\d+$/.test(rowAttr) ? parseInt(rowAttr, 10) : 9999;" +
+            "  const rowNum = parseFloat(a.getAttribute('data-row') || '');" +
+            "  const row = isFinite(rowNum) ? Math.floor(rowNum) : 9999;" +
             "  const cur = map.get(href);" +
             "  if (cur && cur.row <= row) return;" +
             "  map.set(href, { href: href, row: row, text: (a.textContent || '').trim() });" +
@@ -66,10 +103,12 @@ final class FaqSupport {
     static String faqListJs() {
         return "(() => {" +
             "const title = document.title || '';" +
-            "if (/just a moment|attention required/i.test(title)) return { challenge: true };" +
+            "if (/just a moment|attention required|access denied/i.test(title)) return { challenge: true };" +
             "const map = new Map();" +
             "document.querySelectorAll('a[href*=\"/faqs/\"]').forEach(a => {" +
-            "  const href = a.getAttribute('href') || '';" +
+            "  let href = a.getAttribute('href') || '';" +
+            "  if (href.startsWith('http')) { try { href = new URL(href).pathname; } catch (e) {} }" +
+            "  href = href.replace(/[?#].*$/, '');" +
             "  const m = /\\/faqs\\/(\\d+)/.exec(href);" +
             "  if (!m) return;" +
             "  let kb = 0;" +
@@ -90,7 +129,7 @@ final class FaqSupport {
     static String faqTextJs() {
         return "(() => {" +
             "const title = document.title || '';" +
-            "if (/just a moment|attention required/i.test(title)) return { challenge: true };" +
+            "if (/just a moment|attention required|access denied/i.test(title)) return { challenge: true };" +
             "const pres = Array.from(document.querySelectorAll('pre'))" +
             "  .map(p => p.textContent || '').filter(t => t.length > 100);" +
             "const text = pres.join('\\n\\n')" +

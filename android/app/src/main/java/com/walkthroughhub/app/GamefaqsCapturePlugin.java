@@ -77,6 +77,7 @@ public class GamefaqsCapturePlugin extends Plugin {
     @PluginMethod
     public void openCapture(final PluginCall call) {
         final String query = call.getString("query", "");
+        final String reason = call.getString("reason", "");
         final AppCompatActivity activity = getActivity();
         if (activity == null) {
             call.reject("activity tidak tersedia");
@@ -85,6 +86,7 @@ public class GamefaqsCapturePlugin extends Plugin {
         activity.runOnUiThread(() -> {
             Intent intent = new Intent(getContext(), CaptureActivity.class);
             intent.putExtra(CaptureActivity.EXTRA_QUERY, query == null ? "" : query);
+            intent.putExtra(CaptureActivity.EXTRA_REASON, reason == null ? "" : reason);
             startActivityForResult(call, intent, "captureResult");
         });
     }
@@ -138,6 +140,7 @@ public class GamefaqsCapturePlugin extends Plugin {
 
         private WebView web;
         private int step = 0;
+        private int challengeWaits = 0;
         private boolean awaiting = false;
         private boolean finished = false;
         private String gameTitle = "";
@@ -158,7 +161,10 @@ public class GamefaqsCapturePlugin extends Plugin {
             settings.setJavaScriptEnabled(true);
             settings.setDomStorageEnabled(true);
             settings.setBlockNetworkImage(true);
-            settings.setUserAgentString(FaqSupport.MOBILE_UA);
+            // Desktop UA + matching client hints — the same profile the
+            // server-side fetcher uses. Without that GameFAQs search serves
+            // an empty page and deeper pages 403 (see FaqSupport).
+            settings.setUserAgentString(FaqSupport.DESKTOP_UA);
             web.setWebViewClient(
                 new WebViewClient() {
                     @Override
@@ -184,10 +190,11 @@ public class GamefaqsCapturePlugin extends Plugin {
         }
 
         private void load(String url) {
+            challengeWaits = 0;
             awaiting = true;
             handler.removeCallbacks(timeout);
             handler.postDelayed(timeout, STEP_TIMEOUT_MS);
-            web.loadUrl(url);
+            web.loadUrl(url, FaqSupport.headers(true));
         }
 
         private void onPageFinished() {
@@ -212,9 +219,18 @@ public class GamefaqsCapturePlugin extends Plugin {
                     handler.removeCallbacks(timeout);
                     JSONObject obj = FaqSupport.parseJs(value);
                     if (obj.optBoolean("challenge", false)) {
+                        // Cloudflare interstitials often solve themselves after
+                        // a few seconds — wait and re-check before giving up.
+                        if (challengeWaits < 3) {
+                            challengeWaits += 1;
+                            handler.postDelayed(timeout, STEP_TIMEOUT_MS);
+                            handler.postDelayed(this::extract, 2_500);
+                            return;
+                        }
                         fail("GameFAQs meminta verifikasi keamanan (Cloudflare)");
                         return;
                     }
+                    challengeWaits = 0;
                     String best = obj.optString("best", "");
                     if (best.isEmpty()) {
                         fail(

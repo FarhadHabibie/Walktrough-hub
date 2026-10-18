@@ -39,6 +39,7 @@ import java.nio.charset.StandardCharsets;
 public class CaptureActivity extends AppCompatActivity {
 
     static final String EXTRA_QUERY = "query";
+    static final String EXTRA_REASON = "reason";
     static final String EXTRA_PAYLOAD_PATH = "payloadPath";
 
     private static final int BG = 0xFF16161A;
@@ -91,7 +92,14 @@ public class CaptureActivity extends AppCompatActivity {
         reload.setTextColor(INK);
         reload.setPadding(dp(14), 0, dp(14), 0);
         reload.setOnClickListener(v -> {
-            if (web != null) web.reload();
+            if (web == null) return;
+            String url = web.getUrl();
+            // Plain reload() would drop the client hints; re-issue the load.
+            if (url != null && url.startsWith("http")) {
+                web.loadUrl(url, FaqSupport.headers(false));
+            } else {
+                web.reload();
+            }
         });
         top.addView(reload);
 
@@ -106,6 +114,21 @@ public class CaptureActivity extends AppCompatActivity {
         top.addView(capture);
 
         root.addView(top);
+
+        String reason = getIntent().getStringExtra(EXTRA_REASON);
+        if (reason != null && !reason.isEmpty()) {
+            TextView hint = new TextView(this);
+            hint.setText(
+                "Pengambilan otomatis gagal (" +
+                    reason +
+                    "). Cari dan buka halaman FAQ-nya, lalu tap SALIN — teksnya langsung masuk ke app."
+            );
+            hint.setTextSize(12);
+            hint.setTextColor(0xFFFFD9A0);
+            hint.setBackgroundColor(0xFF2A2418);
+            hint.setPadding(dp(12), dp(8), dp(12), dp(8));
+            root.addView(hint);
+        }
 
         bar = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
         bar.setMax(100);
@@ -164,7 +187,7 @@ public class CaptureActivity extends AppCompatActivity {
         if (query != null && query.trim().length() >= 2) {
             url = FaqSupport.ORIGIN + "/search?game=" + FaqSupport.encode(query.trim());
         }
-        web.loadUrl(url);
+        web.loadUrl(url, FaqSupport.headers(false));
     }
 
     /** Extract the FAQ text from the current page and hand it back. */
